@@ -14,10 +14,11 @@ import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
 import Graphics.Rendering.OpenGL as GL hiding (Color)
-import Graphics.UI.GLFW as GLFW
+import Graphics.UI.GLFW as GLFW hiding (createWindow)
 import System.Exit ( exitWith, ExitCode(..) )
 import qualified Data.ByteString as B
 import qualified Graphics.Rendering.OpenGL as GL
+import qualified Graphics.UI.GLFW as GLFW
 
 type Color      = GL.Color4 GLclampf
 color           = Color4
@@ -41,7 +42,7 @@ bufferOffset :: Integral a => a -> Ptr b
 bufferOffset = plusPtr nullPtr . fromIntegral
 
 
-initResources :: B.ByteString -> IO Descriptor
+initResources :: B.ByteString -> IO (Program, Descriptor)
 initResources fragSource = do
     triangles                   <- genObjectName
     bindVertexArrayObject       $= Just triangles
@@ -53,14 +54,13 @@ initResources fragSource = do
 
     program                     <- loadShaders [ ShaderInfo VertexShader vertSource, 
                                                 ShaderInfo FragmentShader fragSource ]
-    currentProgram              $= Just program
 
     let vPos                    = AttribLocation 0
     vertexAttribPointer vPos    $=
         (ToFloat, VertexArrayDescriptor 2 Float 0 (bufferOffset 0))
     vertexAttribArray vPos      $= Enabled
 
-    return $ Descriptor triangles 0 (fromIntegral screenVerts)
+    return $ (program, Descriptor triangles 0 (fromIntegral screenVerts))
 
 
 keyPressed :: GLFW.KeyCallback 
@@ -95,23 +95,37 @@ createWindow title (sizex,sizey) = do
     GLFW.setWindowCloseCallback win (Just shutdown)
     return win
 
-drawInWindow :: B.ByteString -> Color -> Window -> IO ()
-drawInWindow fragSource bgcolor win = do
-    descriptor <- initResources fragSource
-    onDisplay bgcolor win descriptor
+drawInWindow :: [B.ByteString] -> Color -> Window -> IO ()
+drawInWindow fragSources bgcolor win = do
+    descriptors <- mapM initResources fragSources
+    onDisplayMany bgcolor win descriptors
 
 closeWindow :: Window -> IO ()
 closeWindow win = do
     GLFW.destroyWindow win
     GLFW.terminate
 
-onDisplay :: Color -> Window -> Descriptor -> IO ()
-onDisplay bgcolor win descriptor@(Descriptor triangles firstIndex numVertices) = do
+onDisplay :: Color -> Window -> (Program, Descriptor) -> IO ()
+onDisplay c w x = onDisplayMany c w [x]
+
+onDisplayMany :: Color -> Window -> [(Program, Descriptor)] -> IO ()
+onDisplayMany bgcolor win descriptors = do
   GL.clearColor $= bgcolor
   GL.clear [ColorBuffer]
-  bindVertexArrayObject $= Just triangles
-  drawArrays Triangles firstIndex numVertices
+  mapM_ drawFragment descriptors
   GLFW.swapBuffers win
   forever $ do
      GLFW.pollEvents
-     onDisplay bgcolor win descriptor
+     onDisplayMany bgcolor win descriptors
+
+
+drawFragment (program, (Descriptor triangles firstIndex numVertices)) = do
+  currentProgram $= Just program
+  bindVertexArrayObject $= Just triangles
+  drawArrays Triangles firstIndex numVertices
+
+shadeWindow :: [B.ByteString] -> String -> (Int, Int) -> Color -> IO ()
+shadeWindow fragSources title (h,w) color = do
+    win <- createWindow title (h,w)
+    drawInWindow fragSources color win
+    closeWindow win
