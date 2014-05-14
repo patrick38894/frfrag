@@ -9,6 +9,7 @@ import Foreign.Ptr
 import Foreign.Storable
 import NGL.LoadShaders
 import NGL.Shape
+import qualified Data.ByteString as B
 
 
 data Descriptor = Descriptor VertexArrayObject ArrayIndex NumArrayIndices
@@ -18,8 +19,8 @@ bufferOffset :: Integral a => a -> Ptr b
 bufferOffset = plusPtr nullPtr . fromIntegral
 
 
-initResources :: [Vertex2 Float] -> IO Descriptor
-initResources vs = do
+initResources :: B.ByteString -> B.ByteString -> [Vertex2 Float] -> IO Descriptor
+initResources vertSource fragSource vs = do
     triangles <- genObjectName
     bindVertexArrayObject $= Just triangles
 
@@ -32,9 +33,8 @@ initResources vs = do
         let size = fromIntegral (numVertices * sizeOf (head vertices))
         bufferData ArrayBuffer $= (size, ptr, StaticDraw)
 
-    program <- loadShaders [
-        ShaderInfo VertexShader (FileSource "Shaders/triangles.vert"),
-        ShaderInfo FragmentShader (FileSource "Shaders/triangles.frac")]
+    program <- loadShaders [ ShaderInfo VertexShader vertSource, 
+                            ShaderInfo FragmentShader fragSource ]
     currentProgram $= Just program
 
     let firstIndex = 0
@@ -80,9 +80,9 @@ createWindow title (sizex,sizey) = do
     return win
 
 
-drawInWindow :: Window -> [[Point]] -> IO ()
-drawInWindow win vs = do
-    descriptor <- initResources $ toVertex2 vs
+drawInWindow :: B.ByteString -> B.ByteString -> Window -> [[Point]] -> IO ()
+drawInWindow vertSource fragSource win vs = do
+    descriptor <- initResources vertSource fragSource $ toVertex2 vs
     onDisplay win descriptor
 
 

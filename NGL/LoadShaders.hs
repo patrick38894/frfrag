@@ -1,20 +1,11 @@
 --------------------------------------------------------------------------------
--- |
--- Module      :  LoadShaders
--- Copyright   :  (c) Sven Panne 2013
--- License     :  BSD3
---
--- Maintainer  :  Sven Panne <svenpanne@gmail.com>
--- Stability   :  stable
--- Portability :  portable
---
--- Utilities for shader handling, adapted from LoadShaders.cpp which is (c) The
--- Red Book Authors.
---
+-- Utilities for shader handling, 
+-- adapted from LoadShaders.hs (c) Svene Panne 2013
+-- which is in turn adapted from LoadShaders.cpp (c) The Red Book Authors.
 --------------------------------------------------------------------------------
 
 module NGL.LoadShaders (
-   ShaderSource(..), ShaderInfo(..), loadShaders
+   ShaderInfo(..), loadShaders
 ) where
 
 import Control.Exception
@@ -28,20 +19,6 @@ import Graphics.Rendering.OpenGL
 
 -- | The source of the shader source code.
 
-data ShaderSource =
-     ByteStringSource B.ByteString
-     -- ^ The shader source code is directly given as a 'B.ByteString'.
-   | StringSource String
-     -- ^ The shader source code is directly given as a 'String'.
-   | FileSource FilePath
-     -- ^ The shader source code is located in the file at the given 'FilePath'.
-   deriving ( Eq, Ord, Show )
-
-getSource :: ShaderSource -> IO B.ByteString
-getSource (ByteStringSource bs) = return bs
-getSource (StringSource str) = return $ packUtf8 str
-getSource (FileSource path) = B.readFile path
-
 packUtf8 :: String -> B.ByteString
 packUtf8 = TE.encodeUtf8 . T.pack
 
@@ -49,7 +26,7 @@ packUtf8 = TE.encodeUtf8 . T.pack
 
 -- | A description of a shader: The type of the shader plus its source code.
 
-data ShaderInfo = ShaderInfo ShaderType ShaderSource
+data ShaderInfo = ShaderInfo ShaderType B.ByteString
    deriving ( Eq, Ord, Show )
 
 --------------------------------------------------------------------------------
@@ -71,8 +48,7 @@ loadCompileAttach :: Program -> [ShaderInfo] -> IO ()
 loadCompileAttach _ [] = return ()
 loadCompileAttach program (ShaderInfo shType source : infos) =
    createShader shType `bracketOnError` deleteObjectName $ \shader -> do
-      src <- getSource source
-      shaderSourceBS shader $= src
+      shaderSourceBS shader $= source
       compileAndCheck shader
       attachShader program shader
       loadCompileAttach program infos
