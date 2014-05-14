@@ -28,32 +28,30 @@ screenVerts     = length screen
 
 data Descriptor = Descriptor VertexArrayObject ArrayIndex NumArrayIndices
 
-
 bufferOffset :: Integral a => a -> Ptr b
 bufferOffset = plusPtr nullPtr . fromIntegral
 
 
 initResources :: B.ByteString -> B.ByteString -> IO Descriptor
 initResources vertSource fragSource = do
-    triangles               <- genObjectName
-    bindVertexArrayObject   $= Just triangles
-    arrayBuffer             <- genObjectName
-    bindBuffer ArrayBuffer  $= Just arrayBuffer
-    withArray screen        $ \ptr -> do
+    triangles                   <- genObjectName
+    bindVertexArrayObject       $= Just triangles
+    arrayBuffer                 <- genObjectName
+    bindBuffer ArrayBuffer      $= Just arrayBuffer
+    withArray screen            $ \ptr -> do
         let size                = fromIntegral (screenVerts * sizeOf (head screen))
         bufferData ArrayBuffer  $= (size, ptr, StaticDraw)
 
-    program                 <- loadShaders [ ShaderInfo VertexShader vertSource, 
-                                            ShaderInfo FragmentShader fragSource ]
-    currentProgram          $= Just program
+    program                     <- loadShaders [ ShaderInfo VertexShader vertSource, 
+                                                ShaderInfo FragmentShader fragSource ]
+    currentProgram              $= Just program
 
-    let firstIndex          = 0
-        vPosition           = AttribLocation 0
-    vertexAttribPointer vPosition $=
-        (ToFloat, VertexArrayDescriptor 2 Float 0 (bufferOffset firstIndex))
-    vertexAttribArray vPosition $= Enabled
+    let vPos                    = AttribLocation 0
+    vertexAttribPointer vPos    $=
+        (ToFloat, VertexArrayDescriptor 2 Float 0 (bufferOffset 0))
+    vertexAttribArray vPos      $= Enabled
 
-    return $ Descriptor triangles firstIndex (fromIntegral screenVerts)
+    return $ Descriptor triangles 0 (fromIntegral screenVerts)
 
 
 keyPressed :: GLFW.KeyCallback 
@@ -70,8 +68,7 @@ shutdown win = do
 
 
 resizeWindow :: GLFW.WindowSizeCallback
-resizeWindow win w h =
-    do
+resizeWindow win w h = do
       GL.viewport   $= (GL.Position 0 0, GL.Size (fromIntegral w) (fromIntegral h))
       GL.matrixMode $= GL.Projection
       GL.loadIdentity
@@ -89,7 +86,6 @@ createWindow title (sizex,sizey) = do
     GLFW.setWindowCloseCallback win (Just shutdown)
     return win
 
-
 drawInWindow :: B.ByteString -> B.ByteString -> Color -> Window -> IO ()
 drawInWindow vertSource fragSource bgcolor win = do
     descriptor <- initResources vertSource fragSource
@@ -100,7 +96,6 @@ closeWindow win = do
     GLFW.destroyWindow win
     GLFW.terminate
 
-
 onDisplay :: Color -> Window -> Descriptor -> IO ()
 onDisplay bgcolor win descriptor@(Descriptor triangles firstIndex numVertices) = do
   GL.clearColor $= bgcolor
@@ -108,8 +103,6 @@ onDisplay bgcolor win descriptor@(Descriptor triangles firstIndex numVertices) =
   bindVertexArrayObject $= Just triangles
   drawArrays Triangles firstIndex numVertices
   GLFW.swapBuffers win
-
   forever $ do
      GLFW.pollEvents
      onDisplay bgcolor win descriptor
-

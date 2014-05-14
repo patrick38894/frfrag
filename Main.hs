@@ -7,7 +7,7 @@ import Data.ByteString as B
 main :: IO ()
 main = do
     fragSource <- B.readFile "Shaders/Mandelbrot.frag"
-    shadeWindow fragSource "TestWindow" (1000, 1000)
+    shadeWindow fragSource "TestWindow" (1000, 500)
 
 shadeWindow :: B.ByteString -> String -> (Int, Int) -> IO ()
 shadeWindow fragSource title (h,w) = do
