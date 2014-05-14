@@ -1,3 +1,7 @@
+------------------------------------------------------------------------------
+-- Adapted from Rendering.hs (c) Svenne Panne 2013
+------------------------------------------------------------------------------
+
 module NGL.Rendering where
 
 import Graphics.Rendering.OpenGL as GL hiding (Color)
