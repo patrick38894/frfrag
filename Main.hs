@@ -1,8 +1,8 @@
 module Main where
 
-import NGL.Shape
 import NGL.Rendering
 import Data.ByteString as B
+
 
 main :: IO ()
 main = do
@@ -15,5 +15,5 @@ shadeWindow fragSource title (h,w) = do
     -- Replace this with hard-coded
     vertSource <- B.readFile "Shaders/Simple.vert"
     win <- createWindow title (h,w)
-    drawInWindow vertSource fragSource win [shape (Square (-1,-1) 4)]
+    drawInWindow vertSource fragSource (color 1 1 1 1) win
     closeWindow win
