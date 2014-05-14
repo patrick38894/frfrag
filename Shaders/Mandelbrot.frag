@@ -58,6 +58,7 @@ void main (void)
     vec2 complex = scale(position);
     float colormap = mandelbrot(complex, iter, step);
     colorFunc(colormap);
+    gl_FragDepth = 1;
 }
 
 

@@ -59,6 +59,7 @@ void main (void)
     float colormap = mandelbrot(complex, iter, step);
     if (colormap > 16) discard;
     colorFunc(colormap);
+    gl_FragDepth = 0;
 }
 
 
