@@ -2,21 +2,23 @@
 -- Adapted from Rendering.hs (c) Svenne Panne 2013
 ------------------------------------------------------------------------------
 
-module NGL.Rendering where
+module Rendering where
 
-import Graphics.Rendering.OpenGL as GL hiding (Color)
-import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.UI.GLFW as GLFW
+-- Local imports
+import LoadShaders
+
+-- External imports
 import Control.Monad
-import System.Exit ( exitWith, ExitCode(..) )
 import Foreign.Marshal.Array
 import Foreign.Ptr
 import Foreign.Storable
-import NGL.LoadShaders
+import Graphics.Rendering.OpenGL as GL hiding (Color)
+import Graphics.UI.GLFW as GLFW
+import System.Exit ( exitWith, ExitCode(..) )
 import qualified Data.ByteString as B
+import qualified Graphics.Rendering.OpenGL as GL
 
 type Color      = GL.Color4 GLclampf
--- color           :: Float -> Float -> Float -> Float -> Color
 color           = Color4
 
 -- The only thing we'll do with vertices is use them to draw the whole screen.
