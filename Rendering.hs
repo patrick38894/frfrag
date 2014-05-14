@@ -1,3 +1,4 @@
+{-# Language OverloadedStrings #-}
 ------------------------------------------------------------------------------
 -- Adapted from Rendering.hs (c) Svenne Panne 2013
 ------------------------------------------------------------------------------
@@ -28,14 +29,20 @@ screen          = map toVertex2 [(-1,-1), (-1,1), (1,1), (1,-1),
                                  (-1,-1), (-1,1), (1,1), (1,-1), (-1,-1)]
 screenVerts     = length screen
 
+vertSource      = B.intercalate "\n" 
+                [ "#version 430 core",
+                  "layout(location = 0) in vec4 vPosition;",
+                  "void main() { gl_Position = vPosition;}"]
+
+
 data Descriptor = Descriptor VertexArrayObject ArrayIndex NumArrayIndices
 
 bufferOffset :: Integral a => a -> Ptr b
 bufferOffset = plusPtr nullPtr . fromIntegral
 
 
-initResources :: B.ByteString -> B.ByteString -> IO Descriptor
-initResources vertSource fragSource = do
+initResources :: B.ByteString -> IO Descriptor
+initResources fragSource = do
     triangles                   <- genObjectName
     bindVertexArrayObject       $= Just triangles
     arrayBuffer                 <- genObjectName
@@ -88,9 +95,9 @@ createWindow title (sizex,sizey) = do
     GLFW.setWindowCloseCallback win (Just shutdown)
     return win
 
-drawInWindow :: B.ByteString -> B.ByteString -> Color -> Window -> IO ()
-drawInWindow vertSource fragSource bgcolor win = do
-    descriptor <- initResources vertSource fragSource
+drawInWindow :: B.ByteString -> Color -> Window -> IO ()
+drawInWindow fragSource bgcolor win = do
+    descriptor <- initResources fragSource
     onDisplay bgcolor win descriptor
 
 closeWindow :: Window -> IO ()
