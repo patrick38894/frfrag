@@ -33,6 +33,7 @@ data Lit            = Float Float
                     | BMat3x4 BMat3x4
                     | BMat3x2 BMat3x2
                     | BMat2x3 BMat2x3
+                    deriving Show
 
 type GVec2 a        = (a, a)
 type GVec3 a        = (a, a, a)
