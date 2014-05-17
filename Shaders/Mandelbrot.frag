@@ -4,8 +4,8 @@ vec2 zoom = vec2(1., 1.);
 vec2 screen = vec2(1280,960);
 vec2 center = vec2(-1,-0.75);
 float step = 0.1;
-int iter = 1000;
 float thresh = 4.0;
+int iter = 1000;
 //uniform vec2 fractal;
 //uniform vec2 time;
 
@@ -20,7 +20,6 @@ void colorFunc (float colormap)
 }
 
 vec2 offset(vec2 p) {
-	vec2 screen = vec2(640,480);
     p.x -= screen.x/2.0;
     p.y -= screen.y/2.0;
     return p;

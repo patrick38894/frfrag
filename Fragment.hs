@@ -1,3 +1,4 @@
+{-# Language RankNTypes, ExistentialQuantification, FlexibleInstances, ImpredicativeTypes, StandaloneDeriving #-}
 module Fragment where
 import Literals
 
@@ -13,7 +14,9 @@ import Literals
 --  and a main expression can be used to make a subset of fragment shaders.
 --  Namely, these shaders evaluate the list of declarations in order,
 --  then output a single value of type Vec4, which is the GL fragment draw color.
-data Frag           = Frag [Uniform] [Decl] Main                deriving Show
+data Frag           = Frag {uniforms :: [Uniform], 
+                            declarations :: [Decl], 
+                            fragMain :: Main} deriving Show
 
 --  Uniform inputs are basically typed names
 --  (where the type is encoded in the Lit constructor)
@@ -27,11 +30,14 @@ data Uniform        = Uni Lit String (Maybe Lit)                deriving Show
 data Expr           = FragCoord
                     | LitExp Lit
                     | ExpFunc Func [Arg] 
-                    | ExpVal Val                                deriving Show
+                    | ExpVal Val
+
+deriving instance Show Expr
 
 --  Arguments are just a type (encoded in the Lit constructor) and a name.
 --  All arguments will be treated as const.
-data Arg            = Arg Lit String                            deriving Show
+data Arg        = forall a . (Show a) => Arg (a -> Lit) String
+instance Show Arg where show (Arg f s ) = s 
 
 --  A declaration is either a function definitions or a value.
 --  Evaluating declarations should update the environment map.
@@ -45,7 +51,10 @@ data Val            = Val String Expr                           deriving Show
 
 --  A function is a return type and an argument list,
 --  then a list of statements to execute.
-data Func           = Func Lit [Arg] [Stmt]                     deriving Show
+data Func           = Func (forall a . a -> Lit) [Arg] [Stmt]                     
+
+instance Show Func where
+    show (Func rt args sts) = unwords ["Func", show args, show sts]
 
 --  Statements, available only in functions,
 --  allow declarations as well as assignments and control flow.
@@ -85,3 +94,36 @@ data Main           = Pick (Sel Main)
                     | SetColor Expr
                     | Discard                                   deriving Show
 
+
+-- TODO
+--  Consider differentiating function and procedure.
+--  Really, just do it.
+--
+--  Use constructors instead of values as type sentinals?
+
+------------------------------------------------------------------------------
+-- Examples ------------------------------------------------------------------
+
+-- Mandelbrot fractal
+-- Parameters are scale, zoom, center, step, threshold, iterations.
+mandelbrotFrag :: Vec2 -> Vec2 -> Vec2 -> Vec2 -> Float -> Float -> Int -> Frag
+mandelbrotFrag          -- Big parameter list!
+    scale zoom screen center step thresh iter =
+       Frag { uniforms = [],
+              declarations = [offset, scale, complexMult, mandelbrot, complexCoord, colormap],
+              fragMain = Discard
+            } 
+        where
+            offset = undefined
+            -- Num instance would be nice
+            --   offset = Func (Vec2 undefined) [] [Return (Var "p" `Subtract` screen `Div` 2)]
+            scale = undefined
+            --   scale = (p `ElemMult` zoom `ElemMult` scale) `Div` screen `Plus` center
+            complexMult = undefined
+            --  complexMult a b = xsuby (a `ElemMult` b) `Plus` (a `Dot` flipVect b)
+            mandelbrot = undefined
+            --  mandelbrot = Func (Vec2 undefined) [] [
+            complexCoord = undefined
+            colormap = undefined
+
+ex_mandelbrot = undefined
