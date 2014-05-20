@@ -1,37 +1,27 @@
 #version 430 core
-vec2 sc = vec2(4., 4.);
-vec2 zoom = vec2(1., 1.);
+vec2 zoom = vec2(4., 4.);
 vec2 screen = vec2(1280,960);
-vec2 center = vec2(-1,-0.75);
-float step = 0.1;
-float thresh = 4.0;
+vec2 center = vec2(0,0);
+float step = 0.01;
+float thresh = 8.0;
 int iter = 1000;
-//uniform vec2 fractal;
-//uniform vec2 time;
 
 out vec4 fColor;
 
-void colorFunc (float colormap)
+vec4 colorFunc (float colormap)
 {
-        fColor.g = 0.1*(sin(colormap * 1000.)) + 0.1;
-        fColor.r = 200. * mod (colormap, 0.005) ;
-        fColor.b = 0.002/colormap; 
-        fColor.a = 1.0;
+        return vec4 (colormap * 2,
+                     1 - colormap * 10,
+                     0.5,
+                     1.0);
 }
 
 vec2 offset(vec2 p) {
-    p.x -= screen.x/2.0;
-    p.y -= screen.y/2.0;
-    return p;
+    return p - screen/2;
 }
 
 vec2 scale(vec2 p) {
-    p.x /= screen.x/sc.x;
-    p.y /= screen.x/sc.y;
-    p.x *= zoom.x;
-    p.y *= zoom.y;
-    p += center;
-    return p;
+    return p * zoom / screen + center;
 }
 
 
@@ -53,11 +43,7 @@ float mandelbrot(vec2 c, int i, float step) {
 
 void main (void)
 {
-    vec2 position = offset(gl_FragCoord.xy);
-    vec2 complex = scale(position);
-    float colormap = mandelbrot(complex, iter, step);
-    colorFunc(colormap);
-    gl_FragDepth = 1;
+    fColor = colorFunc(mandelbrot(scale(offset(gl_FragCoord.xy)), iter, step));
 }
 
 
