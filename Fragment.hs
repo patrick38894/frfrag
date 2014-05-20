@@ -1,13 +1,14 @@
 module Fragment where
 import Literals
+import Data.Char
+import Text.PrettyPrint.HughesPJ
 
 data Frag = Frag {uniforms        :: [Uniform], 
                   declarations    :: [Decl], 
                   fragMain        :: GLStmt} 
-            deriving Show
 
 data Binding = Bind Type String deriving Show
-data Uniform = Uni Binding (Maybe Lit) deriving Show
+data Uniform = Uni Binding (Maybe Lit)
 
 data Decl = Val Binding Expr
           | Func Binding [Binding] Expr                    
@@ -79,4 +80,54 @@ data GLStmt = Scoped Stmt
 
 data GLVar = GLFragColor deriving Show
 
+------------------------------------------------------------------------------
+-- Pretty printing and show instances ----------------------------------------
 
+printFrag frag = vcat [ vcat $ map printUni (uniforms frag),
+                       vcat $ map printDecl (declarations frag),
+                       printGLStmt (fragMain frag)]
+
+instance Show Frag where
+    show = render . printFrag
+
+eqSign = text "="
+retStmt = text "return"
+blockbraces d = text "{" $+$ nest 4 d $+$ text "}"
+
+argList p es = parens (commasep (map p es))
+commasep = cat . punctuate (text ", ")
+
+printBinding (Bind t v) = sep [printType t, text v]
+printUni (Uni b l) = sep $ printBinding b
+                   : case l of (Just d) -> [eqSign, printLit d]
+                               Nothing -> []
+
+printDecl d = case d of
+    Val b e -> sep [printBinding b, eqSign, printExpr e]
+    Func b args e -> sep [printBinding b <> argList printBinding args,
+                         blockbraces (sep [retStmt, printExpr e])]
+    Proc b args stmts -> sep [printBinding b,
+                             argList printBinding args,
+                             blockbraces (sep $ map printStmt stmts)]
+    GLProc b args stmts -> undefined
+
+
+printStmt = text . show
+
+printGLStmt = text . show 
+
+printLit = text . show
+printType = text . (\(x:xs) -> toLower x : xs) . show
+
+printExpr e = case e of
+    FragCoord -> text "glFragCoord"
+    Lit l -> printLit l
+    Con t es -> printType t <> argList printExpr es
+    LookFunc s es -> text s <> argList printExpr es
+    LookVal s -> text s
+    Swizzle e s -> printExpr e <> text ('.':s)
+    Add e1 e2 -> printExpr e1 <+> text "+" <+> printExpr e2
+    Sub e1 e2 -> printExpr e1 <+> text "-" <+> printExpr e2
+    Mul e1 e2 -> printExpr e1 <+> text "*" <+> printExpr e2
+    Div e1 e2 -> printExpr e1 <+> text "/" <+> printExpr e2
+    x -> error (show x)
