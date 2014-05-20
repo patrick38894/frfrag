@@ -1,4 +1,6 @@
 module Literals where
+import Text.PrettyPrint.HughesPJ
+import Data.Char
 
 data Type = Float | Vec2 | Vec3 | Vec4 
                   | Mat2 | Mat3 | Mat4 
@@ -88,3 +90,20 @@ type BMat4x3   = GMat4x3 Bool
 type BMat3x4   = GMat3x4 Bool
 type BMat3x2   = GMat3x2 Bool 
 type BMat2x3   = GMat2x3 Bool
+
+------------------------------------------------------------------------------
+-- Pretty printing -----------------------------------------------------------
+pprint :: Show a => a -> Doc
+pprint = text . show
+
+lpprint t v = printType t <> text (show v) 
+
+printType :: Type -> Doc
+printType = text . (\(x:xs) -> toLower x : xs) . show
+printLit l = case l of
+    LInt i -> pprint i
+    LFloat f -> pprint f
+    LBool b -> case b of True -> text "1"; False -> text "0"
+    LVec2 v -> lpprint Vec2 v
+    -- Missing cases for most literal types
+    x -> error (show x)
