@@ -3,10 +3,10 @@
 -- Adapted from Rendering.hs (c) Svenne Panne 2013
 ------------------------------------------------------------------------------
 
-module Rendering where
+module Common.Rendering where
 
 -- Local imports
-import LoadShaders
+import Common.LoadShaders
 
 -- External imports
 import Control.Monad

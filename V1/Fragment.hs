@@ -1,5 +1,5 @@
-module Fragment where
-import Literals
+module V1.Fragment where
+import V1.Literals
 import Data.Char
 import Text.PrettyPrint.HughesPJ
 

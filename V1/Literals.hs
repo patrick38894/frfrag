@@ -1,4 +1,4 @@
-module Literals where
+module V1.Literals where
 import Text.PrettyPrint.HughesPJ
 import Data.Char
 

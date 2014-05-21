@@ -1,23 +1,24 @@
-module Main where
-import Fragment
-import Literals
-import Rendering
+module V1.Mandelbrot (mandelbrotFragV1, ex_mandelbrotV1, maindelbrotV1) where
+import V1.Fragment
+import V1.Literals
+import Common.Rendering
 import Data.ByteString.Char8 as B
 
 ex_mandelbrot_packed :: ByteString
-ex_mandelbrot_packed = pack (show ex_mandelbrot)
-ex_mandelbrot = mandelbrotFrag (4,4) (1280,960) (0,0) 0.01 8 1000
-main :: IO ()
-main = do
-    Prelude.putStrLn (show ex_mandelbrot)
+ex_mandelbrot_packed = pack (show ex_mandelbrotV1)
+ex_mandelbrotV1 = mandelbrotFragV1 (4,4) (1280,960) (0,0) 0.01 8 1000
+
+maindelbrotV1 :: IO ()
+maindelbrotV1 = do
+    Prelude.putStrLn (show ex_mandelbrotV1)
     shadeWindow [ex_mandelbrot_packed] "TestWindow" (1280, 960) (color 1 1 1 1)
 
 -- First iteration.
 -- Straightforward translation of GLSL syntax into the corresponding AST.
 -- Carries in parameters as literals.
 
-mandelbrotFrag :: Vec2 -> Vec2 -> Vec2 -> Float -> Float -> Int -> Frag
-mandelbrotFrag  
+mandelbrotFragV1 :: Vec2 -> Vec2 -> Vec2 -> Float -> Float -> Int -> Frag
+mandelbrotFragV1  
     zoom screen center step thresh iter =
        Frag { uniforms = [Uni (Bind Vec2 "zoom") (Just (LVec2 zoom)),
                           Uni (Bind Vec2 "screen") (Just (LVec2 screen)),

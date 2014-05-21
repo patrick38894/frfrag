@@ -4,7 +4,7 @@
 -- which is in turn adapted from LoadShaders.cpp (c) The Red Book Authors.
 --------------------------------------------------------------------------------
 
-module LoadShaders (
+module Common.LoadShaders (
    ShaderInfo(..), loadShaders
 ) where
 
