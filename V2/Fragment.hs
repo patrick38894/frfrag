@@ -5,12 +5,11 @@
              StandaloneDeriving,
              TypeSynonymInstances #-}
 
-module Fragment where
-
-import Data.Char
+module V2.Fragment where
 import Text.PrettyPrint.HughesPJ
-import Control.Monad.State
+import Data.Char
 import GHC.Exts
+
 
 {-data Frag = Frag {uniforms        :: [Uniform], 
                   declarations    :: [Decl], 
@@ -63,32 +62,48 @@ data Exp :: * -> * where
     BoolL :: Bool -> Exp Bool
     FloatL :: Float -> Exp Float
     IntL :: Int -> Exp Int
-    VecE :: (GetRep t, PP t) => [t] -> Exp [t]
-    MatE :: (GetRep t, PP t) => [[t]] -> Exp [[t]]
-    VarE :: PP t => Binding t -> Exp t
-    CallE :: PP r =>  Binding r -> Args -> Exp (Args -> r)
+    VecE :: (PP t, GetRep t) => [t] -> Exp [t]
+    MatE :: (PP t, GetRep t) => [[t]] -> Exp [[t]]
+    VarE :: Binding t -> Exp t
+    CallE :: Binding r -> Args -> Exp (FArgs -> r)
 
 data Binding t = Bind String (Rep t)
 
 -- Heterogenous, variable length argument lists.    
-data Args = forall a. PP a => Arg (Binding a) Args | NoMoreArgs
+data Args = forall a. Arg (Binding a) Args | NoMoreArgs
+data FArgs = forall a . FArg (Binding a) (Exp a) FArgs | NoMoreFArgs
 
 ------------------------------------------------------------------------------
--- Type and structure checking -----------------------------------------------
+-- Declarations and statements -----------------------------------------------
 
--- Execution environment, used to keep the GLSL output sane in the printer ---
-data Env where
-    Empty :: Env
-    Extend :: String -> Rep t -> t -> Env -> Env
+data Dec :: * -> * where
+    Val :: Binding t -> Exp t -> Dec t
+    Func :: Binding t -> Args -> Exp t -> Dec (FArgs -> t)
+    Proc :: Binding t -> Args -> Stmt -> Dec (FArgs -> t)
 
-type Check = State Env
-
--- Starting environment for specialized GL statements,
--- containing "unsafe" GL operations.
-gl_IO_env = undefined
+data Stmt where
+    NoOp :: Stmt
+    Block :: [Stmt] -> Stmt
+    Var :: Binding t -> Exp t -> Stmt
+    Asgn :: Binding t -> Exp t -> Stmt
+    Extract :: Binding r -> Binding r -> FArgs -> Stmt 
+    IfElse :: Exp Bool -> Stmt -> Stmt -> Stmt
+    For :: Binding i -> Exp i -> Exp (i -> Bool) -> Exp (i -> i) -> Stmt -> Stmt
+    While :: Exp Bool -> Stmt -> Stmt
+    Break :: Stmt
+    Continue :: Stmt
+    Return :: Exp a -> Stmt
+    Terminate :: Stmt
+    Discard :: Stmt
 
 ------------------------------------------------------------------------------
 -- Pretty printing -----------------------------------------------------------
+
+arglist :: PP x => [x] -> Doc
+arglist = sep . punctuate comma . map pp
+
+braceBlock :: Doc -> Doc
+braceBlock d = lbrace $+$ nest 4 d $+$ rbrace
 
 instance Show SmallNat where show = render . pp
 instance Show (Rep a) where show = render . pp
@@ -132,11 +147,22 @@ instance PP (Binding t) where
 instance PP Args where
     pp args = case args of
         Arg x NoMoreArgs -> pp x
-        Arg x a -> pp x <> comma <+> pp a
+        Arg x xs -> pp x <> comma <+> pp xs
 
-arglist :: PP x => [x] -> Doc
-arglist = sep . punctuate comma . map pp
+instance PP FArgs where
+    pp fargs = case fargs of
+        FArg x e NoMoreFArgs -> pp e 
+        FArg x e xs -> pp e <> comma <+> pp xs
 
+instance PP (Dec t) where
+    pp dec = case dec of
+        Val (Bind s r) e -> pp r <+> pp s <+> equals <+> pp e
+        Func (Bind s r) a e -> pp r <+> pp s <+> parens (pp a) $+$ braceBlock (pp r)
+        Proc (Bind s r) a b -> pp r <+> pp s <+> parens (pp a) $+$ braceBlock (pp r)
+
+instance PP Stmt where
+    pp stmt = case stmt of
+        NoOp -> empty
 
 ------------------------------------------------------------------------------
 -- Error messages ------------------------------------------------------------
