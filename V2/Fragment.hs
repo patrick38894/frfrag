@@ -29,18 +29,18 @@ data Rep :: * -> * where
     Vec :: SmallNat -> Rep a -> Rep [a]
     Mat :: SmallNat -> SmallNat -> Rep a -> Rep [[a]]
 
-class GetRep a where
-    getRep :: a -> Rep a
+class Scalar a where
+    getRep :: Rep a
 
-instance GetRep Int where getRep = const Int
-instance GetRep Float where getRep = const Float
-instance GetRep Bool where getRep = const Bool
+instance Scalar Int where getRep = Int
+instance Scalar Float where getRep = Float
+instance Scalar Bool where getRep = Bool
 
-getVecRep :: GetRep a => [a] -> Rep [a]
-getMatRep :: GetRep a => [[a]] -> Rep [[a]]
-getVecRep xs = Vec (getDimEnum $ length xs) (getRep (head xs))
+getVecRep :: Scalar a => [a] -> Rep [a]
+getMatRep :: Scalar a => [[a]] -> Rep [[a]]
+getVecRep xs = Vec (getDimEnum $ length xs) getRep
 getMatRep xs = Mat (getDimEnum $ length xs) 
-                   (getDimEnum . the $ map length xs) (getRep (head (head xs)))
+                   (getDimEnum . the $ map length xs) getRep
 getDimEnum :: Int -> SmallNat
 getDimEnum n = toEnum (n-1)
 
@@ -59,11 +59,11 @@ bvec4 = Vec N4 Bool
 -- Expressions ---------------------------------------------------------------
 
 data Exp :: * -> * where
-    BoolL :: Bool -> Exp Bool
-    FloatL :: Float -> Exp Float
-    IntL :: Int -> Exp Int
-    VecE :: (PP t, GetRep t) => [t] -> Exp [t]
-    MatE :: (PP t, GetRep t) => [[t]] -> Exp [[t]]
+    BoolE :: Bool -> Exp Bool
+    FloatE :: Float -> Exp Float
+    IntE :: Int -> Exp Int
+    VecE :: (PP t, Scalar t) => [t] -> Exp [t]
+    MatE :: (PP t, Scalar t) => [[t]] -> Exp [[t]]
     VarE :: Binding t -> Exp t
     CallE :: Binding r -> Args -> Exp (FArgs -> r)
 
@@ -133,9 +133,9 @@ instance PP (Rep a) where
 
 instance PP (Exp a) where
     pp expr = case expr of
-        BoolL b     -> pp (if b then "true" else "false")
-        FloatL n    -> pp (show n)
-        IntL n      -> pp (show n)
+        BoolE b     -> pp (if b then "true" else "false")
+        FloatE n    -> pp (show n)
+        IntE n      -> pp (show n)
         VecE ts     -> pp (getVecRep ts) <> parens (arglist ts)
         MatE ts     -> pp (getMatRep ts) <> (parens . arglist . concat) ts
         VarE (Bind s r) -> pp s
@@ -163,6 +163,7 @@ instance PP (Dec t) where
 instance PP Stmt where
     pp stmt = case stmt of
         NoOp -> empty
+        Block stmts -> braceBlock (vcat (map pp stmts))
 
 ------------------------------------------------------------------------------
 -- Error messages ------------------------------------------------------------
