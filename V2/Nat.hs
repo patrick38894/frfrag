@@ -7,20 +7,22 @@
              RankNTypes,
              UndecidableInstances #-}
 
-data One = One
-data Two = Two
-data Three = Three
-data Four = Four
+data Z = Z
+data S t = S t
+type One = S Z
+type Two = S (S Z)
+type Three = S (S (S Z))
+type Four = S (S (S (S Z)))
 
 type N1 = Dim One
 type N2 = Dim Two
 type N3 = Dim Three
 type N4 = Dim Four
 
-n1 = Dim One :: N1
-n2 = Dim Two :: N2
-n3 = Dim Three :: N3
-n4 = Dim Four :: N4
+n1 = S Z
+n2 = S . S $ Z
+n3 = S . S . S $ Z
+n4 = S . S . S . S $ Z
 
 class IsDim a where
     dims :: a -> [Int]
@@ -34,19 +36,19 @@ instance IsDim n => IsDim (Dim n) where
 
 instance IsDim One where
     dims = const [1]
-    fromDims [1] = One
+    fromDims [1] = S Z
 
 instance IsDim Two where 
     dims = const [2]
-    fromDims [2] = Two
+    fromDims [2] = S (S Z)
 
 instance IsDim Three where
     dims = const [3]
-    fromDims [3] = Three
+    fromDims [3] = S (S (S Z))
 
 instance IsDim Four where 
     dims = const [4]
-    fromDims [4] = Four
+    fromDims [4] = n4
 
 instance (IsDim n, IsDim m) => IsDim (n, m) where
     dims (n, m) = dims n ++ dims m
@@ -63,6 +65,9 @@ instance GenType a N1 => GenType [a] n where
                     t = getRep (head xs)
                 in Vec l t
 
+scalarRep :: Rep [a] n -> Rep a N1
+scalarRep = undefined
+
 data Rep :: * -> * -> * where
     Bool :: Rep Bool N1
     Int :: Rep Int N1
@@ -73,4 +78,4 @@ data Rep :: * -> * -> * where
     Gen :: GenType a n => Rep a n
 
 x :: (IsDim n, GenType a N1, GenType [a] n) => Rep [a] n -> Rep a N1
-x v = undefined 
+x v = case v of Vec n xs -> undefined
