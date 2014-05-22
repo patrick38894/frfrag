@@ -20,6 +20,7 @@ import GHC.Exts
 ------------------------------------------------------------------------------
 -- Representations of types --------------------------------------------------
 
+
 data SmallNat = N2 | N3 | N4 deriving (Eq, Enum, Ord)
 
 data Rep :: * -> * where
