@@ -23,31 +23,34 @@ n3 = Dim Three :: N3
 n4 = Dim Four :: N4
 
 class IsDim a where
-    dims :: [a] -> [Int]
-    fromDims :: [Int] -> [a]
+    dims :: a -> [Int]
+    fromDims :: [Int] -> a
 
-data Dim :: * -> * where
-    Dim :: IsDim n => n -> Dim n
+data Dim :: * -> * where Dim :: IsDim n => n -> Dim n
+
+instance IsDim n => IsDim (Dim n) where
+    dims (Dim n) = dims n
+    fromDims n = Dim (fromDims n)
 
 instance IsDim One where
     dims = const [1]
-    fromDims [1] = [One]
-
-instance IsDim n => IsDim (Dim n) where
-    dims [Dim n] = dims [n]
-    fromDims (i:is) = fmap Dim (fromDims [i]) ++ fromDims is
+    fromDims [1] = One
 
 instance IsDim Two where 
     dims = const [2]
-    fromDims [2] = [Two]
+    fromDims [2] = Two
 
 instance IsDim Three where
     dims = const [3]
-    fromDims [3] = [Three] 
+    fromDims [3] = Three
 
 instance IsDim Four where 
     dims = const [4]
-    fromDims [4] = [Four]
+    fromDims [4] = Four
+
+instance (IsDim n, IsDim m) => IsDim (n, m) where
+    dims (n, m) = dims n ++ dims m
+    fromDims [n, m] = (fromDims [n], fromDims [m])
 
 class GenType a n where getRep :: IsDim n => a -> Rep a n
 
@@ -56,7 +59,7 @@ instance GenType Int N1 where getRep a = Int
 instance GenType Float N1 where getRep a = Float
 
 instance GenType a N1 => GenType [a] n where
-    getRep xs = let [l] = fromDims [length xs]
+    getRep xs = let l = fromDims [length xs]
                     t = getRep (head xs)
                 in Vec l t
 
