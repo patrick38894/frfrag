@@ -21,10 +21,10 @@ type N2 = Dim Two
 type N3 = Dim Three
 type N4 = Dim Four
 
-n1 = S Z
-n2 = S . S $ Z
-n3 = S . S . S $ Z
-n4 = S . S . S . S $ Z
+n1 = Dim $ S Z
+n2 = Dim $ S . S $ Z
+n3 = Dim $ S . S . S $ Z
+n4 = Dim $ S . S . S . S $ Z
 
 class IsNat n where
     nat :: n -> Int
@@ -83,5 +83,8 @@ data Rep :: * -> * -> * where
     Swiz :: GenType b n => Rep [a] n -> String -> Rep b m
     Gen :: GenType a n => Rep a n
 
+vec2 = Vec n2 Float
+
 x :: (IsDim n, IsNat n, GenType a N1, GenType [a] n) => Rep [a] n -> Rep a N1
-x v = case v of Vec n xs -> undefined
+x v = case v of Vec n t -> t
+                
