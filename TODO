@@ -1,3 +1,31 @@
+Broad goals
+-----------
+* Finish basic GADT based syntax and pretty printer.
+* Print and run test cases:
+    * Minimal shader
+    * Color
+    * Region
+    * Mandelbrot
+* Make abstractions - and second order abstractions below.
+    * Region and primitives
+* Add dependency handling; allow Exprs with static dependencies to have those dependencies declared inline in the Declarations section.
+* Follow the development of the mandelbrot (and other test shaders) with some writeups.
+* Use pipes to connect GLSL input stream to output.
+* Make a "timed pipe" that reads an input stream gradually and implements FRP on the GLFW inputs.
+* Make all FRP primitives.
+    * Ev prims
+    * Beh prims
+* "Compile" a shader - extract static declarations and compute them once,
+    unfold finite recursion, convert things to SSA, applies reduction rules, etc.
+* Add structure/type checker.
+
+* MORE TEST CASES
+    * Mandelbrot explorer
+    * NEWTON FRACTAL
+    * Voronoi cells that react to mouse
+    * Raindrops/mouse causes ripples
+    * Starfield (adjustable speed and angle)
+
 Language level
 --------------
 * Swizzle, for Exp Vec -> Exp Vec and Exp Vec -> Exp Sca,

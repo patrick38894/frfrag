@@ -1,6 +1,9 @@
 {-# Language OverloadedStrings #-}
 ------------------------------------------------------------------------------
 -- Adapted from Rendering.hs (c) Svenne Panne 2013
+-- Modifications include:
+--  Changed color datatype.
+--  Added shadeWindow function that draws fragment shaders, in order.
 ------------------------------------------------------------------------------
 
 module Common.Rendering where
@@ -16,12 +19,11 @@ import Foreign.Storable
 import Graphics.Rendering.OpenGL as GL hiding (Color)
 import Graphics.UI.GLFW as GLFW hiding (createWindow)
 import System.Exit ( exitWith, ExitCode(..) )
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 
-type Color      = GL.Color4 GLclampf
-color           = Color4
+data Color      = Color {color :: GL.Color4 GLclampf}
 
 -- The only thing we'll do with vertices is use them to draw the whole screen.
 toVertex2 :: (Float, Float) -> Vertex2 Float
@@ -129,3 +131,6 @@ shadeWindow fragSources title (h,w) color = do
     win <- createWindow title (h,w)
     drawInWindow fragSources color win
     closeWindow win
+
+shadeWindowDef :: [B.ByteString] -> String -> (Int, Int) -> IO ()
+shadeWindowDef fs t d = shadeWindow fs t d (color 1 1 1 1)
