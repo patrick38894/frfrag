@@ -1,3 +1,7 @@
+// Mandelbrot fractal shader
+// Originally by Patrick Romero
+// Modified by Forrest Alexander
+
 uniform vec2 zoom = vec2(4.0,4.0);
 uniform vec2 screen = vec2(1280.0,960.0);
 uniform vec2 center = vec2(0.0,0.0);
