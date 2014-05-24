@@ -1,7 +1,8 @@
 {-# Language 
              FlexibleInstances,
              GADTs,
-             PolyKinds #-}
+             PolyKinds,
+             UndecidableInstances#-}
 
 module V2.Fragment where
 
@@ -34,6 +35,8 @@ data FragSrc = Frag
 instance PP FragSrc where
     pp (Frag us os ds mn) = vcat [pp us, pp os, pp ds, ppmain mn]
 
+instance Show FragSrc where show = render . pp
+
 ------------------------------------------------------------------------------
 -- GLSL language representation ----------------------------------------------
 
@@ -56,26 +59,55 @@ data VecN a where
     Vec3 :: a -> a -> a -> VecN a
     Vec4 :: a -> a -> a -> a -> VecN a
 
--- Turn a vector into a native list. 
+-- Turn a vector into a native list and back.
 vecToList :: VecN t -> [t]
 vecToList v = case v of
     Vec2 a b -> [a, b]
     Vec3 a b c -> [a, b, c]
     Vec4 a b c d -> [a, b, c, d]
 
--- Shorthand for the vector types.
-vec2  = VecT FloaT N2 
-vec3  = VecT FloaT N3 
-vec4  = VecT FloaT N4 
-ivec2 = VecT IntT  N2 
-ivec3 = VecT IntT  N3 
-ivec4 = VecT IntT  N4 
-bvec2 = VecT BoolT N2 
-bvec3 = VecT BoolT N3 
-bvec4 = VecT BoolT N4 
+vecFromList :: [t] -> VecN t
+vecFromList l = case l of
+    [a,b] -> Vec2 a b
+    [a,b,c] -> Vec3 a b c
+    [a,b,c,d] -> Vec4 a b c d
+
+zipVec :: (a -> b -> c) -> VecN a -> VecN b -> VecN c
+zipVec op a b = vecFromList $ zipWith op (vecToList a) (vecToList b)
+
+mapVec :: (a -> b) -> VecN a -> VecN b
+mapVec op = vecFromList . map op . vecToList
 
 -- Matrix type, made of a vector of vectors.
 data MatN t = MatN (VecN (VecN t))
+
+-- Num instances for vectors
+instance Num a => Num (VecN a) where
+    (+) = zipVec (+)
+    (*) = zipVec (*)
+    abs = mapVec abs
+    signum = mapVec signum
+    negate = mapVec negate
+    fromInteger = error "Constructing vector of unknown dimension"
+
+instance Fractional a => Fractional (VecN a) where
+    (/) = zipVec (/)
+    fromRational = error "Constructing vector of unknown dimension"
+
+instance Floating a => Floating (VecN a) where
+    pi = error "Constructing vector of unknown dimension"
+    exp = mapVec exp
+    log = mapVec log
+    sin = mapVec sin
+    cos = mapVec cos
+    asin = mapVec asin
+    acos = mapVec acos
+    atan = mapVec atan
+    sinh = mapVec sinh
+    cosh = mapVec cosh
+    asinh = mapVec asinh
+    acosh = mapVec acosh
+    atanh = mapVec atanh
 
 -- Type equality witness
 data Equal :: k -> k -> * where Refl :: Equal x x
@@ -94,9 +126,8 @@ class RepF f where (~=~) :: f a -> f b -> Maybe(Equal a b)
 -- is that it makes the whole module much more mutually recursive,
 -- since quite a few things load up a heterogenous list at some point,
 -- but can only ever check it for equality or print it.
-data NilF :: * -> *
 data HetList f where
-    HNil :: HetList NilF
+    HNil :: HetList f
     HCons :: (RepF f, PP (f a), Eq (f a)) => f a -> HetList f -> HetList f
 
 -- Eq instance for HetLists with the same f.
@@ -127,6 +158,17 @@ data Rep :: * -> * where
     MatT :: Rep t -> N -> N -> Rep (MatN t)
     StrucT :: String -> ArgList -> Rep String
     VoidT :: Rep Void
+
+-- Shorthand for the vector types.
+vec2  = VecT FloaT N2 
+vec3  = VecT FloaT N3 
+vec4  = VecT FloaT N4 
+ivec2 = VecT IntT  N2 
+ivec3 = VecT IntT  N3 
+ivec4 = VecT IntT  N4 
+bvec2 = VecT BoolT N2 
+bvec3 = VecT BoolT N3 
+bvec4 = VecT BoolT N4 
 
 -- Class for "native values" that have a straightforward Rep.
 -- The instance selected for the type selects the appropriate Rep constructor.
@@ -173,7 +215,7 @@ data Binding :: * -> * where
     Var :: String -> Rep t -> Binding t
     Proc :: String -> Rep t -> ArgList -> Binding (ArgList -> t)
     Rec :: String -> ArgList -> Binding (ArgList -> String) 
-    Dot :: Binding (ArgList -> String) -> String -> Binding a
+    Acc :: Binding (ArgList -> String) -> String -> Binding a
     Swiz :: Binding (VecN a) -> String -> Binding b
 
 -- Uniform bindings are prefixed by the "uniform" keyword,
@@ -210,6 +252,45 @@ data Expr :: * -> * where
     Call :: Binding (ArgList -> ret) -> Args -> Expr ret
     Con :: Binding (ArgList -> rec) -> Args -> Expr rec
 
+-- Primitive exprs
+-- Add, Sub, Mul, Div
+-- Multiplication is elementwise for vectors, matrix mult for matrices
+-- Typing is due to the possibility of adding scalar to vector, casts, etc
+    Add :: (Num a, Num b, Num c) => Expr a -> Expr b -> Expr c
+    Sub :: (Num a, Num b, Num c) => Expr a -> Expr b -> Expr c
+    Mul :: (Num a, Num b, Num c) => Expr a -> Expr b -> Expr c
+    Div :: Expr Int -> Expr Int -> Expr Int
+    Mod :: Expr Int -> Expr Int -> Expr Int
+    FDiv :: (Fractional a, Fractional b, Fractional c) => Expr a -> Expr b -> Expr c
+    Abs :: Num a => Expr a -> Expr a
+    Sgn :: Num a => Expr a -> Expr a
+    Neg :: Num a => Expr a -> Expr a
+-- Comparison, for scalars only
+    LessThan :: (Num a, Num b) => Expr a -> Expr b -> Expr Bool
+    GreaThan :: (Num a, Num b) => Expr a -> Expr b -> Expr Bool
+-- Equality and logical ops
+    Equals :: Expr a -> Expr b -> Expr Bool
+    Or :: Expr Bool -> Expr Bool -> Expr Bool
+    And :: Expr Bool -> Expr Bool -> Expr Bool
+-- Floating operations
+    Sqrt :: Floating a => Expr a -> Expr b
+    Pow :: (Floating a, Floating b) => Expr a -> Expr b -> Expr c
+    Exp :: Floating a => Expr a -> Expr b
+    Log :: Floating a => Expr a -> Expr b
+    Sin :: Floating a => Expr a -> Expr b
+    Cos :: Floating a => Expr a -> Expr b
+    Tan :: Floating a => Expr a -> Expr b
+    Sinh :: Floating a => Expr a -> Expr b
+    Cosh :: Floating a => Expr a -> Expr b
+    Asin :: Floating a => Expr a -> Expr b
+    Acos :: Floating a => Expr a -> Expr b
+    Atan :: Floating a => Expr a -> Expr b
+    Asinh :: Floating a => Expr a -> Expr b
+    Acosh :: Floating a => Expr a -> Expr b
+    Atanh :: Floating a => Expr a -> Expr b
+-- Linear algebra
+    Dot :: Expr (VecN t) -> Expr (VecN t) -> Expr Float
+    CompMult :: Expr (MatN t) -> Expr (MatN t) -> Expr (MatN t)
 -- Two "higher level" abstract expressions are also provided:
 -- Lambda, and application.
 -- Lambdas are not at all supported by GLSL
@@ -219,6 +300,34 @@ data Expr :: * -> * where
 -- and it is an error to try to "compile" one to a final shader.
     Lam :: Binding t -> Expr u -> Expr (t -> u)
     App :: Expr (t -> u) -> Expr t -> Expr u
+
+-- Num instances for Exprs
+instance Num a => Num (Expr a) where
+    (+) = Add
+    (*) = Mul
+    abs = Abs
+    signum = Sgn
+    negate = Neg
+    fromInteger = error "Can't make an expr out of one integer" 
+
+instance Fractional a => Fractional (Expr a) where
+    (/) = FDiv
+    fromRational = error "Can't make an expr out of one float"
+
+instance Floating a => Floating (Expr a) where
+    pi = error "Unknown vector dimension for pi"
+    exp = Exp
+    log = Log
+    sin = Sin
+    cos = Cos
+    asin = Asin
+    acos = Acos
+    atan = Atan
+    sinh = Sinh
+    cosh = Cosh
+    asinh = Asinh
+    acosh = Acosh
+    atanh = Atanh
 
 -- Declarations are:
 --  Values, which bind an expression to a name.
@@ -252,7 +361,7 @@ data Decl :: * -> * where
 -- Terminate is "return" with no expression, for "void" functions.
 -- Discard immediately terminates _the whole shader_, not just the current procedure.
 data Stmt a where
-    Block :: StmtList -> Stmt (StmtList)
+    Block :: StmtList -> Stmt Void
     DecVar :: Binding t -> Expr t -> Stmt t
     Mutate :: Binding t -> Expr t -> Stmt t
     Switch :: Expr Int -> CaseList -> Stmt (CaseList)
@@ -264,21 +373,28 @@ data Stmt a where
     Terminate :: Stmt Void
     Discard :: Stmt Void
 
+instance RepF Stmt where
+    Block l1 ~=~ Block l2 = if l1 == l2 then Just Refl else Nothing
+
+instance Eq (Stmt a) where
+    Block l1 == Block l2 = l1 == l2
+
 -- For Switch statements, a case maps an integer to a statement to execute.
 data Case :: * -> * where Case :: Int -> Stmt t -> Case t
 
 ------------------------------------------------------------------------------
 -- Pretty printing -----------------------------------------------------------
 
--- Show instances based on pretty printers defined below.
-instance Show N where show = render . pp
+-- Show instances based on pp
 instance PP a => Show (VecN a) where show = render . pp
-instance PP a => Show (MatN a) where show = render . pp
-instance Show (HetList f) where show = render . pp 
-instance Show (Rep a) where show = render . pp
 
 -- Class for a pretty printing function, pp.
 class PP x where pp :: x -> Doc
+
+-- Frequently used class for PP and RepF
+class (Eq x, GetRep x, PP x) => RepP x
+instance (Eq x, GetRep x, PP x) => RepP x
+
 -- Instances for simple things.
 -- In case some function redundantly tries to print a doc, comply.
 instance PP Doc where pp = id
@@ -328,7 +444,7 @@ instance PP (Binding t) where
     pp (Var s r) = pp r <+> pp s
     pp (Proc s r as) = pp r <+> pp s <> parens (pp as)
     pp (Rec s as) = pp s
-    pp (Dot rec s) = pp rec <> pp "." <> pp s
+    pp (Acc rec s) = pp rec <> pp "." <> pp s
     pp (Swiz vec s) = pp vec <> pp "." <> pp s
 
 -- Uniform and out bindings just add a prefix qualifier,
