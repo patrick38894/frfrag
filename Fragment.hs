@@ -275,8 +275,12 @@ data Expr :: * -> * where
 -- So these work by rewriting expressions.
 -- As such, they lack a pretty printing instance,
 -- and it is an error to try to "compile" one to a final shader.
-    Lam :: Binding t -> Expr u -> Expr (t -> u)
+    Lam :: Rep t -> Expr u -> Expr (t -> u)
     App :: Expr (t -> u) -> Expr t -> Expr u
+
+-- Shorthand for Bools
+true = Bool True
+false = Bool False
 
 -- Num instances for Exprs
 -- These are provided for each type,
