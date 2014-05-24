@@ -279,20 +279,42 @@ data Expr :: * -> * where
     App :: Expr (t -> u) -> Expr t -> Expr u
 
 -- Num instances for Exprs
-instance Num a => Num (Expr a) where
+-- These are provided for each type,
+-- so that fromInteger can be overloaded.
+instance Num (Expr Int) where
     (+) = Add
     (*) = Mul
     abs = Abs
     signum = Sgn
     negate = Neg
-    fromInteger = error "Can't make an expr out of one integer" 
+    fromInteger = Int . fromInteger
 
-instance Fractional a => Fractional (Expr a) where
+instance Num (Expr Float) where
+    (+) = Add
+    (*) = Mul
+    abs = Abs
+    signum = Sgn
+    negate = Neg
+    fromInteger = Float . fromInteger
+
+instance Num a => Num (Expr (VecN a)) where
+    (+) = Add
+    (*) = Mul
+    abs = Abs
+    signum = Sgn
+    negate = Neg
+    fromInteger = error "Unknown vector dimension."
+
+instance Fractional (Expr Float) where
     (/) = FDiv
-    fromRational = error "Can't make an expr out of one float"
+    fromRational = Float . fromRational
 
-instance Floating a => Floating (Expr a) where
-    pi = error "Unknown vector dimension for pi"
+instance Fractional a => Fractional (Expr (VecN a)) where
+    (/) = FDiv
+    fromRational = error "Unknown vector dimension."
+
+instance Floating (Expr Float) where
+    pi = Float pi
     exp = Exp
     log = Log
     sin = Sin
@@ -306,6 +328,20 @@ instance Floating a => Floating (Expr a) where
     acosh = Acosh
     atanh = Atanh
 
+instance Floating a =>  Floating (Expr (VecN a)) where
+    pi = error "Unknown vector dimension"
+    exp = Exp
+    log = Log
+    sin = Sin
+    cos = Cos
+    asin = Asin
+    acos = Acos
+    atan = Atan
+    sinh = Sinh
+    cosh = Cosh
+    asinh = Asinh
+    acosh = Acosh
+    atanh = Atanh
 -- Declarations are:
 --  Values, which bind an expression to a name.
 --      In this implementation, these are automatically immutable
