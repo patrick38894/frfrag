@@ -6,10 +6,10 @@
 --  Added shadeWindow function that draws fragment shaders, in order.
 ------------------------------------------------------------------------------
 
-module Common.Rendering where
+module Rendering where
 
 -- Local imports
-import Common.LoadShaders
+import LoadShaders
 
 -- External imports
 import Control.Monad

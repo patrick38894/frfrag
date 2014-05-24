@@ -4,7 +4,7 @@
              PolyKinds,
              UndecidableInstances#-}
 
-module V2.Fragment where
+module Fragment where
 
 -- Imports
 import Control.Monad(guard)

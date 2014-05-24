@@ -3,8 +3,8 @@
         GADTs,
         TypeSynonymInstances #-}
 
-module V2.Combinators where
-import V2.Fragment
+module Combinators where
+import Fragment
 import Control.Monad.State
 import Text.PrettyPrint.HughesPJ (render, vcat)
 

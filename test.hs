@@ -1,6 +1,5 @@
-import V1.Mandelbrot
 import Data.ByteString.Char8
-import Common.Rendering
+import Rendering
 
 -- main = maindelbrotV1
 
