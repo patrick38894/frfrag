@@ -20,14 +20,18 @@ import Text.PrettyPrint.HughesPJ
 
 data FragSrc = Frag
                 {
-                    uniform :: HetList Binding,
+                    uniform :: HetList Uniform,
                     decls :: HetList Decl,
-                    main :: Stmt
+                    fragMain :: Stmt Void
                 }
+
+instance PP FragSrc where
+    pp (Frag us ds mn) = vcat [pp us, pp ds, ppmain mn]
 
 ------------------------------------------------------------------------------
 -- GLSL language representation ----------------------------------------------
 
+data Void
 data N = N2 | N3 | N4 deriving (Eq, Ord)
 class AsInt n where asInt :: n -> Int
 instance AsInt N where asInt n = case n of N2 -> 2; N3 -> 3; N4 -> 4
@@ -60,6 +64,7 @@ data Rep :: * -> * where
     VecT :: Rep t -> N -> Rep (VecN t)
     MatT :: Rep t -> N -> N -> Rep (MatN t)
     StrucT :: String -> ArgList -> Rep String
+    VoidT :: Rep Void
 
 class GetRep t where getRep :: t -> Rep t
 instance GetRep Int where getRep = const IntT
@@ -71,6 +76,7 @@ instance GetRep a => GetRep (VecN a) where
     getRep (Vec4 x y z w) = VecT (getRep x) N4
 instance GetRep a => GetRep (MatN a) where
     getRep (MatN vs) = case getRep vs of VecT vt n -> case vt of VecT t m -> MatT t n m 
+instance GetRep Void where getRep = const VoidT
 
 instance RepF Rep where
     BoolT ~=~ BoolT = Just Refl
@@ -87,14 +93,16 @@ instance Eq (Rep a) where
     r == s = isJust (r ~=~ s)
 
 data Binding :: * -> * where
-    Val :: String -> Rep t -> Binding t
+    Var :: String -> Rep t -> Binding t
     Proc :: String -> Rep t -> ArgList -> Binding (ArgList -> t)
     Rec :: String -> ArgList -> Binding (ArgList -> String) 
     Dot :: Binding (ArgList -> String) -> String -> Binding a
     Swiz :: Binding (VecN a) -> String -> Binding b
 
+data Uniform t = Uniform (Binding t)
+
 instance RepF Binding where
-    Val s1 t1 ~=~ Val s2 t2 = guard (s1 == s2) >> (t1 ~=~ t2) 
+    Var s1 t1 ~=~ Var s2 t2 = guard (s1 == s2) >> (t1 ~=~ t2) 
     Proc s1 t1 as1 ~=~ Proc s2 t2 as2 = do guard (s1 == s2 && as1 == as2)
                                            Refl <- (t1 ~=~ t2)
                                            Just Refl     
@@ -107,28 +115,32 @@ data Expr :: * -> * where
     Int :: Int -> Expr Int
     Vec :: VecN t -> Expr (VecN t)
     Mat :: MatN t -> Expr (MatN t)
-    Var :: Binding t -> Expr t
-    Call :: Binding ret -> Args -> Expr ret
-    Con :: Binding rec -> Args -> Expr rec
+    Val :: Binding t -> Expr t
+    Call :: Binding (ArgList -> ret) -> Args -> Expr ret
+    Con :: Binding (ArgList -> rec) -> Args -> Expr rec
+    Lam :: Binding t -> Expr u -> Expr (t -> u)
+    App :: Expr (t -> u) -> Expr t -> Expr u
 
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
-    Process :: Binding (ArgList -> t) -> Stmt -> Decl (ArgList -> t)
+    Process :: GetRep a => Binding (ArgList -> t) -> HetList Stmt -> Decl (ArgList -> t)
     Struct :: Binding (ArgList -> String) -> Decl (ArgList -> String)
 
-data Stmt where
-    NoOp :: Stmt
-    Block :: [Stmt] -> Stmt
-    Mutate :: Binding t -> Expr t -> Stmt
-    Extract :: Binding r -> Binding r -> Args -> Stmt 
-    IfElse :: Expr Bool -> Stmt -> Stmt -> Stmt
-    For :: Binding i -> Expr i -> Expr (i -> Bool) -> Expr (i -> i) -> Stmt -> Stmt
-    While :: Expr Bool -> Stmt -> Stmt
-    Break :: Stmt
-    Continue :: Stmt
-    Return :: Expr a -> Stmt
-    Terminate :: Stmt
-    Discard :: Stmt
+data Stmt a where
+    NoOp :: Stmt Void
+    Block :: HetList Stmt -> Stmt (HetList Stmt)
+    DecVar :: Binding t -> Expr t -> Stmt t
+    Mutate :: Binding t -> Expr t -> Stmt t
+    Switch :: Expr Int -> HetList Case -> Stmt (HetList Case)
+    For :: Binding Int -> Expr Int -> Expr (Int -> Bool) -> Expr (Int -> Int) -> Stmt t -> Stmt t
+    While :: Expr Bool -> Stmt t -> Stmt t
+    Break :: Stmt Void
+    Continue :: Stmt Void
+    Return :: Expr a -> Stmt a
+    Terminate :: Stmt Void
+    Discard :: Stmt Void
+
+data Case :: * -> * where Case :: Int -> Stmt t -> Case t
 
 ------------------------------------------------------------------------------
 -- Auxiliary stuff -----------------------------------------------------------
@@ -161,6 +173,8 @@ class PP x where pp :: x -> Doc
 instance PP Doc where pp = id
 instance PP String where pp = text
 instance PP Int where pp = text . show
+instance PP Bool where pp b = text $ if b then "true" else "false"
+instance PP Void where pp = const (text "void")
 instance PP N where pp = pp . asInt
 instance PP a => PP (VecN a) where pp = sep . punctuate comma . map pp . vecToList
 instance PP a => PP (MatN a) where 
@@ -185,11 +199,11 @@ instance (GetRep a, PP a) => PP (Expr a) where
         Int n      -> pp (show n)
         Vec v      -> getInitial (getRep v) <> (parens $ pp v)
         Mat m      -> getInitial (getRep m) <> (parens $ pp m)
-        Var (Val s r) -> pp s
+        Val (Var s r) -> pp s
         Call (Proc s r a) p -> pp s <> (parens (pp p))
 
 instance PP (Binding t) where
-    pp (Val s r) = pp r <+> pp s
+    pp (Var s r) = pp r <+> pp s
     pp (Proc s r as) = pp r <+> pp s <> parens (pp as)
     pp (Rec s as) = pp s
     pp (Dot rec s) = pp rec <> text "." <> pp s
@@ -197,15 +211,34 @@ instance PP (Binding t) where
 
 instance (GetRep t, PP t) => PP (Decl t) where
     pp dec = case dec of
-        Value (Val s r) e -> pp r <+> pp s <+> equals <+> pp e
+        Value (Var s r) e -> pp r <+> pp s <+> equals <+> pp e
         Process (Proc s r a) b -> pp r <+> pp s <+> parens (pp a) 
                                  $+$ braceBlock (pp b)
         Struct (Rec s a) -> pp "struct" <+> pp s $+$ braceBlock (semiBind a)
 
-instance PP Stmt where
+instance (GetRep a, PP a) => PP (Stmt a) where
     pp stmt = case stmt of
         NoOp -> empty
-        Block stmts -> braceBlock (vcat (map pp stmts))
+        Block stmts -> braceBlock (vcat (pphlist stmts))
+        DecVar (Var s r) e -> pp r <+> pp s <+> equals <+> pp e <> semi
+        Mutate (Var s r) e -> pp s <+> equals <+> pp e <> semi
+        Switch t c -> text "switch" <> parens (pp t) $+$ braceBlock (ppcases c)
+        For ix init test iter stmt -> 
+            text "for" <> parens (pp ix <+> equals <+> pp init <> semi
+                                   <+> pp (App test (Val ix)) <> semi 
+                                   <+> pp (Mutate ix (App iter (Val ix))))
+                                   $+$ braceBlock (pp stmt)
+        While test stmt -> text "while" <> parens (pp test) 
+                          $+$ braceBlock (pp stmt)
+        Break -> text "break" <> semi
+        Continue -> text "continue" <> semi
+        Return e -> text "return" <+> pp e <> semi
+        Terminate -> text "return" <> semi
+        Discard -> text "discard" <> semi
+
+instance (GetRep a, PP a) => PP (Case a) where
+    pp (Case c s) = text "case" <+> pp c <+> colon $+$ braceBlock (pp s)
+    
 
 getInitial :: Rep a -> Doc
 getInitial a = text $ case a of BoolT -> "b"; IntT -> "i"; FloaT -> ""
@@ -220,10 +253,12 @@ pphlist (HCons b bs) = pp b : pphlist bs
 braceBlock :: Doc -> Doc
 braceBlock d = lbrace $+$ nest 4 d $+$ rbrace
 
+ppcases :: HetList Case -> Doc
+ppcases = vcat . punctuate semi . pphlist
+
 semiBind :: HetList Binding -> Doc
 semiBind = vcat . punctuate semi . pphlist
 
-------------------------------------------------------------------------------
--- Error messages ------------------------------------------------------------
-errNonHasRep = "Non-scalar type as vector or matrix element."
-
+ppmain :: Stmt Void -> Doc
+ppmain mn =  text "void main" <> parens empty 
+             $+$ braceBlock (pp mn)
