@@ -1,13 +1,14 @@
+Note: Due on the 5th of June. (13 days remain).
+
 Broad goals
 -----------
-* Finish basic GADT based syntax and pretty printer.
 * Print and run test cases:
     * Minimal shader
     * Color
+    * Overload math
+    * Operators for vector math
     * Region
     * Mandelbrot
-* Make abstractions - and second order abstractions below.
-    * Region and primitives
 * Add dependency handling; allow Exprs with static dependencies to have those dependencies declared inline in the Declarations section.
 * Follow the development of the mandelbrot (and other test shaders) with some writeups.
 * Use pipes to connect GLSL input stream to output.
@@ -25,6 +26,17 @@ Broad goals
     * Voronoi cells that react to mouse
     * Raindrops/mouse causes ripples
     * Starfield (adjustable speed and angle)
+
+
+
+Pipeline
+--------
+
+Haskell exprs (program description) -> (Eventually typecheck) -> PrettyPrint -> Bind to uniform pipe output
+
+
+
+
 
 Language level
 --------------

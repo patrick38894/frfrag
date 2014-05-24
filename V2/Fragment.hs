@@ -11,31 +11,6 @@ import Control.Monad(guard)
 import Data.Maybe(isJust)
 import Text.PrettyPrint.HughesPJ
 
-------------------------------------------------------------------------------
--- Structured GLSL program representation ------------------------------------
-
--- This file focuses on a AST representation of GLSL,
--- and a pretty-printer to make a GLSL source string given such an AST.
-
--- A fragment shader source string
---  consists of a list of uniform variable declarations
---      (the interface to the GL program)
---  a list of declarations
---      (structures, values, and functions)
---  and a main function, which runs at least one statement and returns "void".
-data FragSrc = Frag
-                {
-                    uniform :: HetList Uniform,
-                    out :: HetList Out,
-                    decls :: HetList Decl,
-                    fragMain :: Stmt Void
-                }
-
--- Fragment source files are printed by concatenating the sections.
-instance PP FragSrc where
-    pp (Frag us os ds mn) = vcat [pp us, pp os, pp ds, ppmain mn]
-
-instance Show FragSrc where show = render . pp
 
 ------------------------------------------------------------------------------
 -- GLSL language representation ----------------------------------------------
@@ -217,6 +192,9 @@ data Binding :: * -> * where
     Rec :: String -> ArgList -> Binding (ArgList -> String) 
     Acc :: Binding (ArgList -> String) -> String -> Binding a
     Swiz :: Binding (VecN a) -> String -> Binding b
+-- Primitive bindings
+    FragCoord :: Binding (VecN Float)
+    FragColor :: Binding (VecN Float)
 
 -- Uniform bindings are prefixed by the "uniform" keyword,
 --  and represent an interface to an exterior program.
@@ -251,9 +229,7 @@ data Expr :: * -> * where
     Val :: Binding t -> Expr t
     Call :: Binding (ArgList -> ret) -> Args -> Expr ret
     Con :: Binding (ArgList -> rec) -> Args -> Expr rec
-
--- Primitive exprs
--- Add, Sub, Mul, Div
+-- Numeric exprs
 -- Multiplication is elementwise for vectors, matrix mult for matrices
 -- Typing is due to the possibility of adding scalar to vector, casts, etc
     Add :: (Num a, Num b, Num c) => Expr a -> Expr b -> Expr c
@@ -272,6 +248,7 @@ data Expr :: * -> * where
     Equals :: Expr a -> Expr b -> Expr Bool
     Or :: Expr Bool -> Expr Bool -> Expr Bool
     And :: Expr Bool -> Expr Bool -> Expr Bool
+    Not :: Expr Bool -> Expr Bool
 -- Floating operations
     Sqrt :: Floating a => Expr a -> Expr b
     Pow :: (Floating a, Floating b) => Expr a -> Expr b -> Expr c
@@ -365,6 +342,8 @@ data Stmt a where
     DecVar :: Binding t -> Expr t -> Stmt t
     Mutate :: Binding t -> Expr t -> Stmt t
     Switch :: Expr Int -> CaseList -> Stmt (CaseList)
+    IfThen :: Expr Bool -> Stmt t -> Stmt t
+    IfElse :: Expr Bool -> Stmt t -> Stmt t -> Stmt t
     For :: Binding Int -> Expr Int -> Expr (Int -> Bool) -> Expr (Int -> Int) -> Stmt t -> Stmt t
     While :: Expr Bool -> Stmt t -> Stmt t
     Break :: Stmt Void
@@ -399,6 +378,7 @@ instance (Eq x, GetRep x, PP x) => RepP x
 -- In case some function redundantly tries to print a doc, comply.
 instance PP Doc where pp = id
 instance PP String where pp = text
+instance PP Float where pp = pp . show
 instance PP Int where pp = pp . show
 instance PP N where pp = pp . asInt
 instance PP Bool where pp b = pp $ if b then "true" else "false"
