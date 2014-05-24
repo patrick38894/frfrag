@@ -9,6 +9,11 @@ Broad goals
     * Operators for vector math
     * Region
     * Mandelbrot
+    * Newton fractal
+    * Voronoi cells
+    * Raindrops/ripples
+    * Starfield
+
 * Add dependency handling; allow Exprs with static dependencies to have those dependencies declared inline in the Declarations section.
 * Follow the development of the mandelbrot (and other test shaders) with some writeups.
 * Use pipes to connect GLSL input stream to output.
@@ -20,44 +25,20 @@ Broad goals
     unfold finite recursion, convert things to SSA, applies reduction rules, etc.
 * Add structure/type checker.
 
-* MORE TEST CASES
-    * Mandelbrot explorer
-    * NEWTON FRACTAL
-    * Voronoi cells that react to mouse
-    * Raindrops/mouse causes ripples
-    * Starfield (adjustable speed and angle)
-
-
 
 Pipeline
 --------
-
 Haskell exprs (program description) -> (Eventually typecheck) -> PrettyPrint -> Bind to uniform pipe output
 
+GLSL inputs/Time -> Event/Behavior processors -> Bind to uniform pipe input
 
+Main loop: handle input and output between the pipes, refresh clock/screen
 
-
-
-Language level
---------------
-* Swizzle, for Exp Vec -> Exp Vec and Exp Vec -> Exp Sca,
-    and swizzle for lvalues (in declaration and assignment).
-    Written as normal functions, these should work out.
-    (But the type representations might need some dependent typing?)
-* Struct as Rep. Basic ADTs.
-* Unify func and proc, to faciliate fake recursion below.
-* Make it possible to make a block of Decl, which simply get listed (no brace/indent). 
 
 Second-order
 ------------
-(Can't be included directly, but bake to Exp, Func, etc)
-
-* Lambda abstraction - rewrite a term into an expression, eventually producing an expression via application.
-    * Lambda as rewrite: rewrite until it becomes an expression ("finite recursion"). (Application)
-    * Lambda as function: Lambda with n top-level lambda terms -> Function with n+1 args (Promotion)
-        (Recurse to figure out lower-level functions, and define them as well). 
 * Control structures
-    * Stream a. Potentially infinite stream of a.
+    * Stream a. Potentially infinite stream of Expr a.
     * ++: Put one string before another. When using Foldr/Foldl, use the same initializer/accumulator.
     * Enumerate: Make a Stream Int, in forward or reverse fashion (use Enum class to overload [1..])
     * Map: Given a -> b, Stream a, make Stream b
