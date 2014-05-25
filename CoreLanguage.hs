@@ -3,7 +3,7 @@
              PolyKinds,
              UndecidableInstances#-}
 
-module Fragment where
+module CoreLanguage where
 import Control.Monad(guard)
 import Data.Maybe(isJust)
 import Text.PrettyPrint.HughesPJ
@@ -18,7 +18,6 @@ data VecN a where
     Vec4 :: a -> a -> a -> a -> VecN a
 
 data MatN t = MatN (VecN (VecN t))
-data SwizT t = Either (VecN t) t
 
 data Rep :: * -> * where
     BoolT :: Rep Bool
@@ -30,7 +29,7 @@ data Rep :: * -> * where
 data Binding :: * -> * where
     Var :: String -> Rep t -> Binding t
     Proc :: String -> Rep r -> a -> Binding (a -> r)
-    Swiz :: Binding (SwizT t) -> String -> Binding (SwizT t)
+    Swiz :: Binding v -> String -> Binding x
     FragCoord :: Binding (VecN Float)
     FragColor :: Binding (VecN Float)
 
@@ -48,12 +47,14 @@ data Expr :: * -> * where
     Vec :: VecN t -> Expr (VecN t)
     Mat :: MatN t -> Expr (MatN t)
     Val :: Binding t -> Expr t
-    Prim :: String -> Expr (a -> b)
-    BinOp :: String -> Expr (a -> b -> c)
+    Prim :: String -> Expr a -> Expr b
+    Prim2 :: String -> Expr a -> Expr b -> Expr c
+    BinOp :: String -> Expr a -> Expr b -> Expr c
     Call :: Binding (t -> u) -> Expr (t -> u)
     Lift :: (Expr t -> Expr u) -> Expr (t -> u)
     Lam :: Binding t -> Expr u -> Expr (t -> u)
     App :: Expr (t -> u) -> Expr t -> Expr u
+    Comp :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
 
 data Stmt where
     Block :: [Stmt] -> Stmt
