@@ -126,5 +126,3 @@ instance Floating a =>  Floating (Expr (VecN a)) where
     asinh = asinhE
     acosh = acoshE
     atanh = atanhE
-
-
