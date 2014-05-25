@@ -1,19 +1,7 @@
-{-# Language FlexibleInstances, GADTs #-}
+{-# Language FlexibleContexts, FlexibleInstances, GADTs #-}
 module Utility where
 import CoreLanguage
-
-extract :: Expr a -> a
-extract e = case e of
-    Float x -> x
-    Int x -> x
-    Vec x -> x
-    Mat x -> x
-
-class Wrap a where wrap :: a -> Expr a
-instance Wrap Int where wrap = Int
-instance Wrap Float where wrap = Float
-instance Wrap Bool where wrap = Bool
-instance Wrap a => Wrap (VecN a) where wrap = Vec
+import HigherOrder
 
 asInt n = (case n of N2 -> 2; N3 -> 3; N4 -> 4) :: Int
 
@@ -69,7 +57,7 @@ vZ v = case v of Vec3 _ _ c -> c; Vec4 _ _ c _ -> c
                  other -> error "Vector index too large"
 vW v = case v of Vec4 _ _ _ d -> d; other -> error "Vector index too large"
 
-gX, gY, gZ, gW :: Wrap a => Expr (VecN a) -> Expr a
+gX, gY, gZ, gW :: Wrap Expr a => Expr (VecN a) -> Expr a
 gX (Vec v) = wrap (vX v)
 gY (Vec v) = wrap (vY v)
 gZ (Vec v) = wrap (vZ v)

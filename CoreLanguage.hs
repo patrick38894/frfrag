@@ -28,17 +28,15 @@ data Rep :: * -> * where
 
 data Binding :: * -> * where
     Var :: String -> Rep t -> Binding t
-    Proc :: String -> Rep r -> a -> Binding (a -> r)
     Swiz :: Binding v -> String -> Binding x
+    Proc :: String -> Rep r -> a -> Binding (a -> r)
     FragCoord :: Binding (VecN Float)
     FragColor :: Binding (VecN Float)
 
-data Uniform t = Uniform (Binding t) (Maybe (Expr t))
-data Out t = Out (Binding t)
-
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
-    Procedure :: Binding (a -> r) -> [Stmt] -> Decl (a -> r)
+    Uniform :: Binding t -> Maybe (Expr t) -> Decl t
+    Procedure :: Binding (a -> r) -> Stmt -> Decl (a -> r)
     Function :: Binding (a -> r) -> Expr (a -> r) -> Decl (a -> r)
 
 data Expr :: * -> * where
