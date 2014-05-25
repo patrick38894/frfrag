@@ -1,18 +1,23 @@
-{-# Language FlexibleContexts, FlexibleInstances, GADTs, MultiParamTypeClasses #-}
+{-# Language DeriveFunctor,
+             FlexibleContexts, 
+             FlexibleInstances,
+             GADTs, 
+             MultiParamTypeClasses,
+             UndecidableInstances#-}
+
 module HigherOrder where
 import CoreLanguage
 import Vector
 
 class Wrap f a where wrap :: a -> f a
 class Extract f where extract :: f a -> a
+
 class HFunctor f where 
-    hfmap :: (Wrap f b, Extract f) => (a -> b) -> f a -> f b
+    hfmap :: Wrap f b => (a -> b) -> f a -> f b
+
+instance (Extract f) => HFunctor f where
     hfmap f = wrap . f . extract
  
-data HFree f where
-    Pure :: a -> HFree f
-    Roll :: HFunctor f => f (HFree f) -> HFree f
-
 instance Wrap Rep Int where wrap = const IntT
 instance Wrap Rep Float where wrap = const FloaT
 instance Wrap Rep Bool where wrap = const BoolT
@@ -37,7 +42,5 @@ instance Wrap Expr Int where wrap = Int
 instance Wrap Expr Float where wrap = Float
 instance Wrap Expr Bool where wrap = Bool
 instance Wrap Expr a => Wrap Expr (VecN a) where wrap = Vec
-
-instance HFunctor Expr
 
 count = Sequence 1 1 1
