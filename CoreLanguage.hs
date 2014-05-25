@@ -39,21 +39,39 @@ data Decl :: * -> * where
     Procedure :: Binding (a -> r) -> Stmt -> Decl (a -> r)
     Function :: Binding (a -> r) -> Expr (a -> r) -> Decl (a -> r)
 
+data Stream a
+    
 data Expr :: * -> * where
+--  Core GLSL expressions
+--  Literals
     Float :: Float -> Expr Float
     Bool :: Bool -> Expr Bool
     Int :: Int -> Expr Int
     Vec :: VecN t -> Expr (VecN t)
     Mat :: MatN t -> Expr (MatN t)
-    Val :: Binding t -> Expr t
+--  Primitive unary and binary functions and ops
     Prim :: String -> Expr a -> Expr b
     Prim2 :: String -> Expr a -> Expr b -> Expr c
-    BinOp :: String -> Expr a -> Expr b -> Expr c
+    BinOp :: String -> Expr a -> Expr b -> Expr c 
+--  GLSL Abstractions
+    Val :: Binding t -> Expr t
     Call :: Binding (t -> u) -> Expr (t -> u)
-    Lift :: (Expr t -> Expr u) -> Expr (t -> u)
+--  Fake expressions (cannot be printed directly). 
+--  Term-rewriting abstractions
     Lam :: Binding t -> Expr u -> Expr (t -> u)
+    Lift :: (Expr t -> Expr u) -> Expr (t -> u)
     App :: Expr (t -> u) -> Expr t -> Expr u
     Comp :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
+    Recurse :: Expr (a -> a) -> (Expr a -> Bool) -> Expr a
+--  Vector abstractions
+    MapV :: Expr (a -> b) -> Expr (VecN a) -> Expr (VecN b)
+    AppV :: Expr (VecN (a -> b)) -> Expr (VecN a) -> Expr (VecN b)
+    ZipV :: Expr (a -> b -> c) -> Expr (VecN a) -> Expr (VecN b) -> Expr (VecN c)
+--  Loop abstractions
+    Sequence :: Int -> Int -> Int -> Expr (Stream Int)
+    Fold :: Expr (x -> a -> a) -> Expr a -> Expr (Stream x -> a)
+    Map :: Expr (a -> b) -> Expr (Stream a -> Stream b)
+    Repeat :: Expr (a -> a) -> Expr (a -> Bool) -> Expr (Stream a -> a)
 
 data Stmt where
     Block :: [Stmt] -> Stmt

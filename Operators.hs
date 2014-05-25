@@ -1,8 +1,9 @@
 {-# Language FlexibleInstances, StandaloneDeriving, DeriveFunctor, FlexibleContexts #-}
-module Instances where
+module Operators where
 import CoreLanguage
 import Primitive
 import Utility
+import Vector
 
 deriving instance Functor VecN
 deriving instance Functor MatN
@@ -19,8 +20,8 @@ infixr 3 .>=
 
 (\^) :: (Expr t -> Expr u) -> Expr (t -> u)
 (\^) = Lift
-(\>) :: Binding t -> Expr u -> Expr (t -> u)
-(\>) = Lam
+(\>) :: Expr t -> Expr u -> Expr (t -> u)
+(Val a) \> b = Lam a b
 (\$) :: Expr (t -> u) -> Expr t -> Expr u
 (\$) = App
 (\.) :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)

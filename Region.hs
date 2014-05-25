@@ -1,7 +1,8 @@
 {-# Language GADTs #-}
 module Region where
 import CoreLanguage
-import Instances
+import Operators
+import Vector
 import Primitive (notE, true)
 import Utility
 
@@ -16,7 +17,7 @@ data Region where
     Rotate          :: Region -> Expr Float -> Region
     Transpose       :: Region -> Expr (VecN Float) -> Region
     Scale           :: Region -> Expr (VecN Float) -> Region
-
+{-
 region :: Region -> Expr (VecN Float -> Bool)
 region r = let v4 = Var "regionLAMBDA" vec4 in case r of
     Anywhere        -> Lift $ const true
@@ -48,4 +49,4 @@ ellipse :: Expr (VecN Float) -> Expr (VecN Float) -> Region
 ellipse c r = let v = Var "ellipseLAMBDA" vec4 in
     Predicate (v \> (one .> ((gX c/gX r)**two + (gY c/gY r)**two)))
 
-
+-}
