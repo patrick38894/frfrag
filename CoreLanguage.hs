@@ -39,6 +39,7 @@ data Out t = Out (Binding t)
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
     Procedure :: Binding (a -> r) -> [Stmt] -> Decl (a -> r)
+    Function :: Binding (a -> r) -> Expr (a -> r) -> Decl (a -> r)
 
 data Expr :: * -> * where
     Float :: Float -> Expr Float
