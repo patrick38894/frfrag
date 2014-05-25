@@ -1,7 +1,4 @@
-{-# Language
-        FlexibleInstances,
-        GADTs,
-        TypeSynonymInstances #-}
+{-# Language FlexibleInstances, GADTs, TypeSynonymInstances #-}
 
 module Combinators where
 import Fragment
@@ -40,78 +37,63 @@ instance Show FragSrc where show = render . pp
 ------------------------------------------------------------------------------
 -- Region combinators --------------------------------------------------------
 
-type Point = (Float, Float)
-
-fragCoord = Val FragCoord
-sX c = Val (Swiz c "x")
-sY c = Val (Swiz c "y")
-sZ c = Val (Swiz c "z")
-sW c = Val (Swiz c "w")
-coordX = sX FragCoord
-coordY = sY FragCoord
-someVec4 = Var "someVar" vec4
-
 -- Region constructors
 data Region where
-    Anywhere :: Region
-    Predicate :: Expr (VecN Float -> Bool) -> Region
-    Complement :: Region -> Region
-    Intersect :: Region -> Region -> Region
-    Union :: Region -> Region -> Region
-    Difference :: Region -> Region -> Region
-    Warp :: Region -> (Expr (VecN Float -> VecN Float)) -> Region
-    Rotate :: Region -> Float -> Region
-    Transpose :: Region -> Point -> Region
-    Scale :: Region -> Point -> Region
+    Anywhere        :: Region
+    Predicate       :: Expr (VecN Float -> Bool) -> Region
+    Complement      :: Region -> Region
+    Intersect       :: Region -> Region -> Region
+    Union           :: Region -> Region -> Region
+    Warp            :: Region -> (Expr (VecN Float -> VecN Float)) -> Region
+    Difference      :: Region -> Region -> Region
+    Rotate          :: Region -> Expr Float -> Region
+    Transpose       :: Region -> Expr (VecN Float) -> Region
+    Scale           :: Region -> Expr (VecN Float) -> Region
 
 -- Region destructor which returns a single predicate
 region :: Region -> Expr (VecN Float -> Bool)
-region r = let v4 = Val someVec4 in case r of
-    Anywhere -> Lam someVec4 (Bool True)
-    Predicate p -> p
-    Complement p -> Lam someVec4 (Not (App (region p) v4))
-    Intersect p q -> Lam someVec4 (And (App (region p) v4) (App (region q) v4))
-    Union p q -> Lam someVec4 (Or (App (region p) v4) (App (region q) v4))
-    Difference p q -> region $ Intersect p (Complement q)
-    Warp p w -> Lam someVec4 (App (region p) (App w v4))
-    Rotate p theta -> region $ Warp p (rotate theta)    
-    Transpose p d -> region $ Warp p (transpose d)
-    Scale p s -> region $ Warp p (scale s)
+region r = let v4 = Var "regionLAMBDA" vec4 in case r of
+    Anywhere        -> Lift $ const true
+    Predicate p     -> p
+    Complement p    -> v4 \> notE (region p \$ Val v4)
+    Intersect p q   -> v4 \> (region p \$ Val v4) .&& (region q \$ Val v4)
+    Union p q       -> v4 \> (region p \$ Val v4) .|| (region q \$ Val v4)
+    Warp p w        -> v4 \> region p \$ w \$ Val v4
+    Difference p q  -> region $ Intersect p (Complement q)
+    Rotate p theta  -> region $ Warp p (rotate theta)    
+    Transpose p d   -> region $ Warp p (transpose d)
+    Scale p s       -> region $ Warp p (scale s)
 
-rotate :: Float -> Expr (VecN Float -> VecN Float)
-rotate theta = scale (cos theta, sin theta)
+rotate :: Expr Float -> Expr (VecN Float -> VecN Float)
+rotate (Float theta) = scale . Vec $ pointXY (cos theta) (sin theta)
 
-transpose :: Point -> Expr (VecN Float -> VecN Float)
-transpose (x,y) = Lam someVec4 (Vec (Vec4 x y 1 1) + Val someVec4)
+transpose :: Expr (VecN Float) -> Expr (VecN Float -> VecN Float)
+transpose p = let v4 = Var "LAMBDAtranspose" vec4 in v4 \> (p + Val v4)
 
-scale :: Point -> Expr (VecN Float -> VecN Float)
-scale (x,y) = Lam someVec4 (Vec (Vec4 x y 1 1) * Val someVec4)
+scale :: Expr (VecN Float) -> Expr (VecN Float -> VecN Float)
+scale s = let v4 = Var "LAMBDAscale" vec4 in v4 \> (s * Val v4)
 
 -- Rectangle defined by size.
-rectangle :: Point -> Region
-rectangle (w, h) = let v = someVec4 in
-    Predicate (Lam v ((And (And (GreaThan (Float 0) (sX v))
-                                 (GreaThan (Float 0) (sY v)))
-                            (And (LessThan (Float w) (sX v))
-                                 (LessThan (Float h) (sY v))))))
+rectangle :: Expr (VecN Float) -> Region
+rectangle r = let v4 = Var "rectangleLAMBDA" vec4 in
+    Predicate (v4 \> (zero .> sX v4 .&& zero .> sY v4 
+                 .&& gX r .< sX v4 .&& gY r .< sY v4))
 
 -- Ellipse defined by center and foci
-ellipse :: Point -> Point -> Region
-ellipse (x,y) (a,b) = let v = Var "v" vec4 in
-    Predicate (Lam v (Float 1 `GreaThan` ((Float x/Float a)**(Float 2) 
-                                        + (Float y/Float b)**(Float 2))))
+ellipse :: Expr (VecN Float) -> Expr (VecN Float) -> Region
+ellipse c r = let v = Var "ellipseLAMBDA" vec4 in
+    Predicate (v \> (one .> ((gX c/gX r)**two + (gY c/gY r)**two)))
 
 -- Circle defined by center and radius
-circle :: Point -> Float -> Region
-circle c r = ellipse c (r, r)
+circle :: Expr (VecN Float) -> Expr Float -> Region
+circle c r = ellipse c (pointXYE r r)
 
 -- Triangle defined by 3 points
-triangle :: Point -> Point -> Point -> Region
+triangle :: Expr (VecN Float) -> Expr (VecN Float) -> Expr (VecN Float) -> Region
 triangle = undefined
 
-
 -- Polygon defined by a list of points
-polygon :: [Point] -> Region
+polygon :: [Expr (VecN Float)] -> Region
 polygon = undefined
 
 ------------------------------------------------------------------------------
@@ -191,7 +173,7 @@ shadeColor c = shadeExpr $ case c of Vec3 a b c -> Vec (Vec4 a b c 1)
 
 -- Shade a select region and discard the rest
 shadeRegion :: Expr (VecN Float -> Bool) -> Stmt Void -> Stmt Void
-shadeRegion r s = IfElse (App r fragCoord) s Discard
+shadeRegion r s = IfElse (r \$ fragCoord) s Discard
 
 -- Execute one statement after another
 andThen :: (PP a, PP b, GetRep a, GetRep b) => Stmt a -> Stmt b -> Stmt Void
