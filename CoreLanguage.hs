@@ -1,12 +1,10 @@
-{-# Language FlexibleInstances,
+{-# Language 
+             FlexibleInstances,
              GADTs,
-             PolyKinds,
-             UndecidableInstances#-}
+             KindSignatures
+ #-}
 
 module CoreLanguage where
-import Control.Monad(guard)
-import Data.Maybe(isJust)
-import Text.PrettyPrint.HughesPJ
 
 ------------------------------------------------------------------------------
 -- GLSL language representation ----------------------------------------------
@@ -58,7 +56,7 @@ data Expr :: * -> * where
     Call :: Binding (t -> u) -> Expr (t -> u)
 --  Fake expressions (cannot be printed directly). 
 --  Term-rewriting abstractions
-    Lam :: Binding t -> Expr u -> Expr (t -> u)
+    Lam :: Int -> Rep t -> Expr u -> Expr (t -> u)
     Lift :: (Expr t -> Expr u) -> Expr (t -> u)
     App :: Expr (t -> u) -> Expr t -> Expr u
     Comp :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
