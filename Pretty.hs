@@ -2,6 +2,7 @@
              FlexibleContexts,
              FlexibleInstances,
              GADTs,
+             RankNTypes,
              TypeSynonymInstances,
              UndecidableInstances
  #-}
@@ -53,11 +54,13 @@ instance Pretty (Binding t) where
     Void            -> empty
 
 ppfunc :: Binding t -> [Doc] -> Doc
-ppfunc r a = case r of
-    Var ret cal -> pp ret <+> pp cal <> parens (commasep a)
-    Func r' a'  -> ppfunc r' (pp a' : a)
-    Void        -> empty
-    other       -> error "Invalid argument to function."
+ppfunc = ppcurry pp
+
+ppcurry :: (forall a . Binding a -> Doc) -> Binding t -> [Doc] -> Doc
+ppcurry f r a = case r of
+    v @ (Var ret cal) -> f v <> parens (commasep a)
+    Func r' a'      -> ppcurry f r' (f a' : a)
+    other           -> error "Invalid argument to function."
 
 instance Pretty (a->b) where pp = error "Cannot print function"
 instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
@@ -71,19 +74,15 @@ instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
                         Var r nm  -> pp nm
                         Func r a -> error "Cannot access function as value"
                         other -> pp other
-
     App f a         -> ppapply f a
     other           -> error "Cannot print partially applied function"
 
-ppapply :: Expr (a -> b) -> Expr a -> Doc
+ppapply :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr (a -> b) -> Expr a -> Doc
 ppapply f a = case f of
-    Call f -> undefined
-    Lam i r e -> undefined
-    Lift f  -> undefined
-    Comp f g -> undefined
-    Recurse f b -> undefined
-    App f e -> undefined 
-    other -> error "Invalid function application target"
+        Call g -> ppfunc g [pp a]
+        Lam i r e -> undefined
+        App g e -> undefined 
+        other -> error "Invalid function application target"
 
 instance Show N where show = render . pp
 instance Pretty a => Show (VecN a) where show = render . pp
