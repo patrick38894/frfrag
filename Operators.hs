@@ -13,33 +13,19 @@ import HigherOrder
 
 deriving instance Functor VecN
 deriving instance Functor MatN
-
-infixr 0 \$
-infixr 1 \>
-infixr 1 \^
 infixr 2 .&&
 infixr 2 .||
 infixr 3 .<
 infixr 3 .<=
 infixr 3 .>
 infixr 3 .>=
-
-(\^) :: (Expr t -> Expr u) -> Expr (t -> u)
-(\^) = Lift
-(\>) :: Expr t -> Expr u -> Expr (t -> u)
---(Val a) \> b = Lam a b
-(\>) = undefined
-(\$) :: Expr (t -> u) -> Expr t -> Expr u
-(\$) = App
-(\.) :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
-(\.) = Comp
-
 (.&&) = andE
 (.||) = orE
 (.<) = ltE
 (.<=) = lteE
 (.>) = gtE
 (.>=) = gteE
+
 
 unknownDimErr = error "Constructing vector of unknown dimension"
 

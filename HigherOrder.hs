@@ -40,4 +40,46 @@ instance (Wrap Rep a, Wrap Expr a) => Wrap Expr (VecN a) where
 instance Wrap Rep (a -> b) where wrap = error "No GLSL representation for function types"
 instance Wrap Expr (a -> b) where wrap = error "No GLSL representation for function types"
 
-count = Sequence 1 1 1
+infixr 0 \$
+infixr 1 \>
+infixr 1 \^
+
+(\>) :: Expr t -> Expr u -> Expr (t -> u)
+--(Val a) \> b = Lam a b
+(\>) = undefined
+(\$) :: Expr (t -> u) -> Expr t -> Expr u
+(\$) = App
+(\.), composeE :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
+(\.) = composeE
+composeE = undefined
+(\^), liftE :: (Expr t -> Expr u) -> Expr (t -> u)
+(\^) = liftE
+liftE = undefined
+
+curryE :: (Expr a -> Expr b -> Expr c) -> Expr (a -> b -> c)
+curryE = undefined
+
+uncurryE :: Expr (a -> b -> c) -> Expr a -> Expr b -> Expr c
+uncurryE = undefined
+
+staticRecursion :: (Expr a -> a) -> Expr (a -> a) -> Expr a
+staticRecursion base f = undefined
+
+mapV :: Expr (a -> b) -> Expr (VecN a -> VecN b)
+mapV = undefined
+appV :: Expr (VecN (a -> b)) -> Expr (VecN a -> VecN b)
+appV fs = liftE $ (uncurryE . zipV $ curryE App) fs
+zipV :: Expr (a -> b -> c) -> Expr (VecN a -> VecN b -> VecN c)
+zipV = undefined
+
+sequenceS = Sequence
+mapS = Map
+takeS = Take
+lastS = Last
+scanS = Scan
+
+foldS :: Expr (x -> a -> a) -> Expr a -> Stream (Expr x) -> Expr a
+foldS f a = lastS . scanS f a
+
+accumWhileS :: Expr (a -> Bool) -> Expr (x -> a -> a) -> Expr a -> Stream (Expr x) -> Expr a
+accumWhileS c f a = lastS . takeS c . scanS f a
