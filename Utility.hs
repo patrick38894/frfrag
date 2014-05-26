@@ -1,8 +1,11 @@
 {-# Language FlexibleContexts, FlexibleInstances, GADTs #-}
 module Utility where
-import CoreLanguage
+import Expressions
 import HigherOrder
 import Vector
+
+getRep :: Wrap Rep a => a -> Rep a
+getRep = wrap
 
 fragCoord = Val FragCoord
 coordX = sX FragCoord
@@ -16,19 +19,11 @@ rep4 y = Vec4 y y y y
 pointXY :: Num a => a -> a -> VecN a
 pointXY a b = Vec4 a b 1 1
 
-rep2E, rep3E, rep4E :: Expr a -> Expr (VecN a)
-rep2E = Vec . rep2 . extract
-rep3E = Vec . rep3 . extract
-rep4E = Vec . rep4 . extract
-
-pointXYE :: Num a => Expr a -> Expr a -> Expr (VecN a)
-pointXYE a b = Vec $ pointXY (extract a) (extract b)
-
 gX, gY, gZ, gW :: Wrap Expr a => Expr (VecN a) -> Expr a
-gX (Vec v) = wrap (vX v)
-gY (Vec v) = wrap (vY v)
-gZ (Vec v) = wrap (vZ v)
-gW (Vec v) = wrap (vW v)
+gX (Vec r v) = wrap (vX v)
+gY (Vec r v) = wrap (vY v)
+gZ (Vec r v) = wrap (vZ v)
+gW (Vec r v) = wrap (vW v)
 
 -- Swizzle a named vector
 sX c = Val (Swiz c "x")

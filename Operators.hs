@@ -1,9 +1,15 @@
-{-# Language FlexibleInstances, StandaloneDeriving, DeriveFunctor, FlexibleContexts #-}
+{-# Language 
+            FlexibleInstances, 
+            StandaloneDeriving, 
+            DeriveFunctor, 
+            FlexibleContexts,
+            UndecidableInstances #-}
 module Operators where
-import CoreLanguage
+import Expressions
 import Primitive
 import Utility
 import Vector
+import HigherOrder
 
 deriving instance Functor VecN
 deriving instance Functor MatN
@@ -37,10 +43,10 @@ infixr 3 .>=
 
 unknownDimErr = error "Constructing vector of unknown dimension"
 
-negE :: (Num a, Num (Expr a)) => Expr a -> Expr a
-negE a = subE (asTypeOf 0 a) a
+negE :: (Num a, Num (Expr a), Wrap Rep a) => Expr (a -> a)
+negE = Lam 0 PolyT (App (App subE (asTypeOf 0 (LamT 0))) (LamT 0))
 
-instance Num a => Num (VecN a) where
+instance (Num a, Wrap Rep a) => Num (VecN a) where
     (+) = zipVec (+)
     (*) = zipVec (*)
     abs = fmap abs
@@ -49,42 +55,42 @@ instance Num a => Num (VecN a) where
     fromInteger = unknownDimErr
 
 instance Num (Expr Int) where
-    (+) = addE
-    (*) = mulE
-    abs = absE
-    signum = sgnE
-   -- negate = negE
+    (+) = App . App addE
+    (*) = App . App mulE
+    abs = App absE
+    signum = App sgnE
+    negate = App negE
     fromInteger = Int . fromInteger
 
 instance Num (Expr Float) where
-    (+) = addE
-    (*) = mulE
-    abs = absE
-    signum = sgnE
-    --negate = negE
+    (+) = App . App addE
+    (*) = App . App mulE
+    abs = App absE
+    signum = App sgnE
+    negate = App negE
     fromInteger = Float . fromInteger
 
-instance Num a => Num (Expr (VecN a)) where
-    (+) = addE
-    (*) = mulE
-    abs = absE
-    signum = sgnE
-    negate = negE
+instance (Num a, Wrap Rep a) => Num (Expr (VecN a)) where
+    (+) = App . App addE
+    (*) = App . App mulE
+    abs = App absE
+    signum = App sgnE
+    negate = App negE
     fromInteger = unknownDimErr
 
-instance Fractional a => Fractional (VecN a) where
+instance (Fractional a, Wrap Rep a) => Fractional (VecN a) where
     (/) = zipVec (/)
     fromRational = unknownDimErr
 
 instance Fractional (Expr Float) where
-    (/) = fdivE
+    (/) = App . App fdivE
     fromRational = Float . fromRational
 
-instance Fractional a => Fractional (Expr (VecN a)) where
-    (/) = fdivE
+instance (Fractional a, Wrap Rep a) => Fractional (Expr (VecN a)) where
+    (/) = App . App fdivE
     fromRational = unknownDimErr
 
-instance Floating a => Floating (VecN a) where
+instance (Floating a, Wrap Rep a) => Floating (VecN a) where
     pi = unknownDimErr
     exp = fmap exp
     log = fmap log
@@ -101,30 +107,30 @@ instance Floating a => Floating (VecN a) where
 
 instance Floating (Expr Float) where
     pi = Float pi
-    exp = expE
-    log = logE
-    sin = sinE
-    cos = cosE
-    asin = asinE
-    acos = acosE
-    atan = atanE
-    sinh = sinhE
-    cosh = coshE
-    asinh = asinhE
-    acosh = acoshE
-    atanh = atanhE
+    exp = App expE
+    log = App logE
+    sin = App sinE
+    cos = App cosE
+    asin = App asinE
+    acos = App acosE
+    atan = App atanE
+    sinh = App sinhE
+    cosh = App coshE
+    asinh = App asinhE
+    acosh = App acoshE
+    atanh = App atanhE
 
-instance Floating a =>  Floating (Expr (VecN a)) where
+instance (Floating a, Wrap Rep a) =>  Floating (Expr (VecN a)) where
     pi = unknownDimErr
-    exp = expE
-    log = logE
-    sin = sinE
-    cos = cosE
-    asin = asinE
-    acos = acosE
-    atan = atanE
-    sinh = sinhE
-    cosh = coshE
-    asinh = asinhE
-    acosh = acoshE
-    atanh = atanhE
+    exp = App expE
+    log = App logE
+    sin = App sinE
+    cos = App cosE
+    asin = App asinE
+    acos = App acosE
+    atan = App atanE
+    sinh = App sinhE
+    cosh = App coshE
+    asinh = App asinhE
+    acosh = App acoshE
+    atanh = App atanhE

@@ -1,5 +1,5 @@
 module Synonyms where
-import CoreLanguage
+import Expressions
 import Vector
 
 float = FloaT

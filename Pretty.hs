@@ -1,13 +1,16 @@
 {-# Language
+             FlexibleContexts,
              FlexibleInstances,
              GADTs,
              TypeSynonymInstances,
              UndecidableInstances
  #-}
+
 module Pretty where
-import CoreLanguage
+import Expressions
 import Synonyms
 import Vector
+import HigherOrder
 import Text.PrettyPrint.HughesPJ hiding (float, int)
 
 class Pretty a where pp :: a -> Doc
@@ -27,10 +30,12 @@ instance Pretty (Rep t) where
     BoolT       -> pp "bool"
     FloaT       -> pp "float"
     IntT        -> pp "int"
-    FuncT r a   -> error "No native GLSL function type"
     VecT r n    -> getInitial r <> pp "vec" <> pp n
     MatT r n m  -> getInitial r <> pp "mat" <> pp n
                     <> if m == n then empty else pp "x" <> pp m
+    VoidT       -> pp "void"
+    PolyT       -> error "No native GLSL polymorphic type"
+    FuncT r a   -> error "No native GLSL function type"
     where getInitial r = pp $ case r of 
             BoolT   -> "b"
             IntT    -> "i"
@@ -41,32 +46,56 @@ instance Pretty (Binding t) where
     FragCoord       -> pp "gl_FragCoord"
     FragColor       -> pp "gl_FragColor"
     Var r nm        -> pp r <+> pp nm
-    Swiz b s        -> pp b <> period <> pp s
-    Func r a        -> case r of
-        Var ret cal -> pp ret <+> pp cal <+> lparen <> pp a
-        Func r' a'  -> pp (Func r' a) <> comma <+> pp a'
-        other       -> error "Invalid argument to function."
+    Func r a        -> ppfunc r [pp a]
+    Swiz b s        -> (case b of Var r nm -> pp nm
+                                  Func r a -> error "Cannot swizzle function"
+                                  other -> pp other) <> period <> pp s
+    Void            -> empty
 
+ppfunc :: Binding t -> [Doc] -> Doc
+ppfunc r a = case r of
+    Var ret cal -> pp ret <+> pp cal <> parens (commasep a)
+    Func r' a'  -> ppfunc r' (pp a' : a)
+    Void        -> empty
+    other       -> error "Invalid argument to function."
 
-instance Pretty (Decl t) where
-  pp decl = case decl of
-    Value b e       -> pp b <+> equals <+> pp e
-    Uniform b e     -> pp b <> (case e of
-                        Just x -> empty <+> equals <+> pp x
-                        Nothing -> empty ) <> semi  
-    Procedure nm r stmt -> undefined
-    Function nm r expr -> undefined  
+instance Pretty (a->b) where pp = error "Cannot print function"
+instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
+  pp e = case e of
+    Float f         -> pp f
+    Bool b          -> pp b
+    Int i           -> pp i
+    Vec r v         -> pp r <> parens (pp v)
+    Mat r v         -> pp r <> parens (pp v)
+    Val b           -> case b of
+                        Var r nm  -> pp nm
+                        Func r a -> error "Cannot access function as value"
+                        other -> pp other
 
-instance Pretty (Expr t)
+    App f a         -> ppapply f a
+    other           -> error "Cannot print partially applied function"
+
+ppapply :: Expr (a -> b) -> Expr a -> Doc
+ppapply f a = case f of
+    Call f -> undefined
+    Lam i r e -> undefined
+    Lift f  -> undefined
+    Comp f g -> undefined
+    Recurse f b -> undefined
+    App f e -> undefined 
+    other -> error "Invalid function application target"
 
 instance Show N where show = render . pp
 instance Pretty a => Show (VecN a) where show = render . pp
 instance Pretty a => Show (MatN a) where show = render . pp
 instance Pretty (Rep a) => Show (Rep a) where show = render . pp
 instance Pretty (Binding a) => Show (Binding a) where show = render . pp
+instance Pretty (Expr a) => Show (Expr a) where show = render . pp
 
 period = pp "."
 commasep :: [Doc] -> Doc
 commasep = sep . punctuate comma
 commaseq :: Pretty a => [a] -> Doc
 commaseq = commasep . map pp
+braceblock :: Doc -> Doc
+braceblock = braces . nest 4

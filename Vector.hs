@@ -25,6 +25,10 @@ vecFromList l = case l of
     [a,b,c] -> Vec3 a b c
     [a,b,c,d] -> Vec4 a b c d
 
+
+matFromList :: [[t]] -> MatN t
+matFromList m = MatN (vecFromList (map vecFromList m))
+
 zipVec :: (a -> b -> c) -> VecN a -> VecN b -> VecN c
 zipVec op a b = vecFromList $ zipWith op (vecToList a) (vecToList b)
 
