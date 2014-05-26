@@ -1,8 +1,8 @@
 module Primitive where
 import CoreLanguage
+import Vector
+import Synonyms
 
-true = Bool True
-false = Bool False
 
 eqE, ltE, lteE, gtE, gteE :: Expr a -> Expr a -> Expr Bool
 eqE = BinOp "=="
@@ -15,7 +15,8 @@ orE, andE :: Expr Bool -> Expr Bool -> Expr Bool
 orE = BinOp "||"
 andE = BinOp "&&"
 notE :: Expr (Bool -> Bool)
-notE = let v = Var "varNOT" BoolT in Lam v (BinOp "&& !" true $ Val v)
+--notE = let v = Var "varNOT" BoolT in Lam v (BinOp "&& !" true $ Val v)
+notE = undefined
 
 addE, subE, mulE :: Num a => Expr a -> Expr a -> Expr a
 addE = BinOp "+" 

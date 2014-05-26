@@ -1,5 +1,4 @@
-{-# Language DeriveFunctor,
-             FlexibleContexts, 
+{-# Language FlexibleContexts, 
              FlexibleInstances,
              GADTs, 
              MultiParamTypeClasses,
@@ -28,8 +27,8 @@ instance Extract Decl where
   extract e = case e of
     Value name expr -> undefined
     Uniform bind def -> undefined
-    Procedure proc stmt -> undefined
-    Function func expr -> undefined
+    --Procedure proc stmt -> undefined
+    --Function func expr -> undefined
 
 instance Extract Expr where 
   extract e = case e of

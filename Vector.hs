@@ -1,5 +1,14 @@
+{-# Language GADTs #-}
 module Vector where
-import CoreLanguage
+
+data N = N2 | N3 | N4 deriving (Eq, Ord)
+
+data VecN a where 
+    Vec2 :: a -> a -> VecN a
+    Vec3 :: a -> a -> a -> VecN a
+    Vec4 :: a -> a -> a -> a -> VecN a
+
+data MatN t = MatN (VecN (VecN t))
 
 asInt n = (case n of N2 -> 2; N3 -> 3; N4 -> 4) :: Int
 
@@ -9,6 +18,7 @@ vecToList v = case v of
     Vec3 a b c -> [a, b, c]
     Vec4 a b c d -> [a, b, c, d]
 
+
 vecFromList :: [t] -> VecN t
 vecFromList l = case l of
     [a,b] -> Vec2 a b
@@ -17,16 +27,6 @@ vecFromList l = case l of
 
 zipVec :: (a -> b -> c) -> VecN a -> VecN b -> VecN c
 zipVec op a b = vecFromList $ zipWith op (vecToList a) (vecToList b)
-
-vec2  = VecT FloaT N2 
-vec3  = VecT FloaT N3 
-vec4  = VecT FloaT N4 
-ivec2 = VecT IntT  N2 
-ivec3 = VecT IntT  N3 
-ivec4 = VecT IntT  N4 
-bvec2 = VecT BoolT N2 
-bvec3 = VecT BoolT N3 
-bvec4 = VecT BoolT N4 
 
 
 vecSize v = case v of

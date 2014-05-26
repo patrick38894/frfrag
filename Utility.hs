@@ -41,5 +41,3 @@ zero = Float 0
 one = Float 1
 two = Float 2
 
-int = IntT
-float = FloaT

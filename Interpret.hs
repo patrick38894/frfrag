@@ -8,15 +8,12 @@ import Utility
 
 import Control.Monad.State
 
+type Interpret = State Fragment
+data Fragment where Fragment :: Env -> Scope -> Region -> Fragment
 type Scope = [Stmt]
-
 data Env where
     Empty :: Env
     Extend :: Decl a -> Env -> Env    
-
-data Fragment where Fragment :: Env -> Scope -> Region -> Fragment
-
-type Interpret = State Fragment
 
 check :: Interpret Fragment
 check = undefined
@@ -36,7 +33,10 @@ uniform = undefined
 function :: Expr (a -> b) -> Interpret (Expr (a -> b))
 function = undefined
 
-lamTerm :: Rep a -> Interpret (Expr a)
-lamTerm = undefined
+value :: Expr a -> Interpret (Expr a)
+value = undefined
+
+fragColor :: Expr (VecN Float) -> Interpret Fragment
+fragColor = undefined
 
 

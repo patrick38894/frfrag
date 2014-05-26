@@ -1,41 +1,38 @@
 {-# Language 
              FlexibleInstances,
              GADTs,
-             KindSignatures
+             KindSignatures,
+             TypeSynonymInstances,
+             UndecidableInstances
  #-}
 
 module CoreLanguage where
+import Vector
+import Text.PrettyPrint.HughesPJ hiding (float, int)
 
-------------------------------------------------------------------------------
+
+------------------------------------------Var ------------------------------------
 -- GLSL language representation ----------------------------------------------
-data N = N2 | N3 | N4 deriving (Eq, Ord)
-
-data VecN a where 
-    Vec2 :: a -> a -> VecN a
-    Vec3 :: a -> a -> a -> VecN a
-    Vec4 :: a -> a -> a -> a -> VecN a
-
-data MatN t = MatN (VecN (VecN t))
-
 data Rep :: * -> * where
     BoolT :: Rep Bool
     IntT :: Rep Int
     FloaT :: Rep Float
+    FuncT :: Rep r -> Rep a -> Rep (a -> r)
     VecT :: Rep t -> N -> Rep (VecN t)
     MatT :: Rep t -> N -> N -> Rep (MatN t)
 
 data Binding :: * -> * where
-    Var :: String -> Rep t -> Binding t
-    Swiz :: Binding v -> String -> Binding x
-    Proc :: String -> Rep r -> a -> Binding (a -> r)
     FragCoord :: Binding (VecN Float)
     FragColor :: Binding (VecN Float)
+    Var :: Rep t -> String -> Binding t
+    Swiz :: Binding v -> String -> Binding x
+    Func :: Binding r -> Binding a -> Binding (a -> r)
 
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
     Uniform :: Binding t -> Maybe (Expr t) -> Decl t
-    Procedure :: Binding (a -> r) -> Stmt -> Decl (a -> r)
-    Function :: Binding (a -> r) -> Expr (a -> r) -> Decl (a -> r)
+    Procedure :: String -> Rep r -> Stmt -> Decl (a -> r)
+    Function :: String -> Rep r -> Expr (a -> r) -> Decl (a -> r)
 
 data Stream a
     

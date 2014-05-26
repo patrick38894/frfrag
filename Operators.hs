@@ -21,7 +21,8 @@ infixr 3 .>=
 (\^) :: (Expr t -> Expr u) -> Expr (t -> u)
 (\^) = Lift
 (\>) :: Expr t -> Expr u -> Expr (t -> u)
-(Val a) \> b = Lam a b
+--(Val a) \> b = Lam a b
+(\>) = undefined
 (\$) :: Expr (t -> u) -> Expr t -> Expr u
 (\$) = App
 (\.) :: Expr (u -> v) -> Expr (t -> u) -> Expr (t -> v)
