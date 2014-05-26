@@ -29,7 +29,7 @@ infixr 3 .>=
 
 unknownDimErr = error "Constructing vector of unknown dimension"
 
-negE :: (Num a, Num (Expr a), Wrap Rep a) => Expr (a -> a)
+negE :: (Num a, Num (Expr a), Pretty a, Wrap Expr a, Wrap Rep a) => Expr (a -> a)
 negE = Lam 0 PolyT (App (App subE (asTypeOf 0 (LamT 0))) (LamT 0))
 
 instance (Num a, Wrap Rep a) => Num (VecN a) where
@@ -56,7 +56,7 @@ instance Num (Expr Float) where
     negate = App negE
     fromInteger = Float . fromInteger
 
-instance (Num a, Wrap Rep a) => Num (Expr (VecN a)) where
+instance (Num a, Pretty a, Wrap Expr a, Wrap Rep a) => Num (Expr (VecN a)) where
     (+) = App . App addE
     (*) = App . App mulE
     abs = App absE
@@ -72,7 +72,7 @@ instance Fractional (Expr Float) where
     (/) = App . App fdivE
     fromRational = Float . fromRational
 
-instance (Fractional a, Wrap Rep a) => Fractional (Expr (VecN a)) where
+instance (Fractional a, Pretty a, Wrap Expr a, Wrap Rep a) => Fractional (Expr (VecN a)) where
     (/) = App . App fdivE
     fromRational = unknownDimErr
 
@@ -106,7 +106,7 @@ instance Floating (Expr Float) where
     acosh = App acoshE
     atanh = App atanhE
 
-instance (Floating a, Wrap Rep a) =>  Floating (Expr (VecN a)) where
+instance (Floating a, Pretty a, Wrap Expr a, Wrap Rep a) =>  Floating (Expr (VecN a)) where
     pi = unknownDimErr
     exp = App expE
     log = App logE
