@@ -1,4 +1,4 @@
-Note: Due on the 5th of June. (13 days remain).
+Note: Due on the 5th of June. (11 days remain).
 
 Broad goals
 -----------
@@ -33,18 +33,3 @@ Haskell exprs (program description) -> (Eventually typecheck) -> PrettyPrint -> 
 GLSL inputs/Time -> Event/Behavior processors -> Bind to uniform pipe input
 
 Main loop: handle input and output between the pipes, refresh clock/screen
-
-
-Second-order
-------------
-* Control structures
-    * Stream a. Potentially infinite stream of Expr a.
-    * ++: Put one string before another. When using Foldr/Foldl, use the same initializer/accumulator.
-    * Enumerate: Make a Stream Int, in forward or reverse fashion (use Enum class to overload [1..])
-    * Map: Given a -> b, Stream a, make Stream b
-    * Foldr/Foldl: Given a -> acc -> acc, acc, stream a, make an acc
-    * Scanl/Scanr: Stream a -> Stream acc basically
-    * TailRecurse: Given base cases (a), recursion op (e.g. decrement), function b->a->b,
-        compute function a -> b that starts with inputs a and b0
-        computes some b with it using b0 and a, and stores b0 and a for the next iteration.
-    * Iterate: Make While loop with predicate.

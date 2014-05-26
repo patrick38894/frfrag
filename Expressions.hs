@@ -60,6 +60,7 @@ data Stream a where
     Map :: Expr (a -> b) -> Stream (Expr a) -> Stream (Expr b)
     Take :: Expr (x -> Bool) -> Stream (Expr x) -> Stream (Expr x)
     Scan :: Expr (x -> a -> a) -> Expr a -> Stream (Expr x) -> Stream (Expr a)
+    Cat :: Stream (Expr a) -> Stream (Expr a) -> Stream (Expr a)
 
 ------------------------------------------------------------------------------
 
