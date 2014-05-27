@@ -34,22 +34,16 @@ data Binding :: * -> * where
     Void :: Binding ()
 
 data Expr :: * -> * where
---  Core GLSL expressions
---  Literals
     Float :: Float -> Expr Float
     Bool :: Bool -> Expr Bool
     Int :: Int -> Expr Int
     Vec :: Rep (VecN t) -> VecN t -> Expr (VecN t)
     Mat :: Rep (MatN t) -> MatN t -> Expr (MatN t)
---  Primitive unary and binary functions and ops
     Prim :: String -> Expr (a -> b)
     Prim2 :: String -> Expr (a -> b -> c)
     BinOp :: String -> Expr (a -> b -> c)
---  GLSL Abstractions
     Val :: Binding t -> Expr t
     Call :: Binding (t -> u) -> Expr (t -> u)
---  Fake expressions (cannot be printed directly). 
---  Term-rewriting abstractions
     Lam :: Int -> Rep t -> Expr u -> Expr (t -> u)
     LamT :: Int -> Expr a
     App :: (Pretty t, Wrap Expr t, Wrap Rep t) => Expr (t -> u) -> Expr t -> Expr u
@@ -97,10 +91,11 @@ instance Wrap Rep (a -> b) where wrap = error "No GLSL representation for functi
 instance Wrap Expr (a -> b) where wrap = error "No GLSL representation for function types"
 
 ------------------------------------------------------------------------------
-
+data SyntaxError = SyntaxError String
 class Pretty a where pp :: a -> Doc
 
 instance Pretty String where pp = text
+instance Pretty SyntaxError where pp (SyntaxError a) = pp "GLSL AST ERROR:" <+> pp a
 instance Pretty Int where pp = pp . show
 instance Pretty Float where pp = pp . show
 instance Pretty Bool where pp b = pp $ if b then "true" else "false"
@@ -118,8 +113,8 @@ instance Pretty (Rep t) where
     MatT r n m  -> getInitial r <> pp "mat" <> pp n
                     <> if m == n then empty else pp "x" <> pp m
     VoidT       -> pp "void"
-    PolyT       -> error "No native GLSL polymorphic type"
-    FuncT r a   -> error "No native GLSL function type"
+    PolyT       -> pperror "Polymorphic type not implemented"
+    FuncT r a   -> pperror "First-class function type not implemented"
     where getInitial r = pp $ case r of 
             BoolT   -> "b"
             IntT    -> "i"
@@ -130,22 +125,15 @@ instance Pretty (Binding t) where
     FragCoord       -> pp "gl_FragCoord"
     FragColor       -> pp "gl_FragColor"
     Var r nm        -> pp r <+> pp nm
-    Func r a        -> ppfunc r [pp a]
+    Func r a        -> ppfunc r [ checkArgType pp a ]
     Swiz b s        -> (case b of Var r nm -> pp nm
-                                  Func r a -> error "Cannot swizzle function"
+                                  Func r a -> pperror "Function swizzling not implemented"
                                   other -> pp other) <> period <> pp s
     Void            -> empty
 
-ppfunc :: Binding t -> [Doc] -> Doc
-ppfunc = ppcurry pp
+instance Pretty (a->b) where
+    pp = const (error "Trying to pretty print via (a->b) instance (this shouldn't happen!)")
 
-ppcurry :: (forall a . Binding a -> Doc) -> Binding t -> [Doc] -> Doc
-ppcurry f r a = case r of
-    v @ (Var ret cal) -> f v <> parens (commasep a)
-    Func r' a'      -> ppcurry f r' (f a' : a)
-    other           -> error "Invalid argument to function."
-
-instance Pretty (a->b) where pp = error "Cannot print function"
 instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
   pp e = case e of
     Float f         -> pp f
@@ -157,15 +145,13 @@ instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
                         Var r nm  -> pp nm
                         Func r a -> error "Cannot access function as value"
                         other -> pp other
-    App f a         -> ppapply f a
-    other           -> error "Cannot print partially applied function"
-
-ppapply :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr (a -> b) -> Expr a -> Doc
-ppapply f a = case f of
-        Call g -> ppfunc g [pp a]
-        Lam i r e -> undefined
-        App g e -> undefined 
-        other -> error "Invalid function application target"
+    App f a         -> ppapply f [pp a]
+    Prim s          -> pperror $ "Cannot call unary '" ++ s ++ "' without arguments"
+    Prim2 s         -> pperror $ "Cannot call binary '" ++ s ++ "' without arguments"
+    BinOp s         -> pperror $ "Cannot call binary op '" ++ s ++ "' without arguments"
+    Call b          -> pperror $ "Cannot call function '" ++ show b ++ "' without arguments"
+    Lam i r e       -> pperror $ "Cannot print partially applied lambda binding '" ++ show r ++ "'"
+    LamT i          -> pperror $ "Cannot print lambda term " ++ show i
 
 instance Show N where show = render . pp
 instance Pretty a => Show (VecN a) where show = render . pp
@@ -174,6 +160,7 @@ instance Pretty (Rep a) => Show (Rep a) where show = render . pp
 instance Pretty (Binding a) => Show (Binding a) where show = render . pp
 instance Pretty (Expr a) => Show (Expr a) where show = render . pp
 
+pperror = pp . SyntaxError
 period = pp "."
 commasep :: [Doc] -> Doc
 commasep = sep . punctuate comma
@@ -181,3 +168,30 @@ commaseq :: Pretty a => [a] -> Doc
 commaseq = commasep . map pp
 braceblock :: Doc -> Doc
 braceblock = braces . nest 4
+
+checkArgType f a = case a of
+    Var r s -> f a
+    Func r x -> pperror $ "Cannot give function " ++ show (Func r x) ++ " as function argument"
+    FragCoord -> pperror "Cannot give 'gl_FragCoord' as function argument"
+    FragColor -> pperror "Cannot give 'gl_FragColor' as function argument"
+    Swiz v s -> pperror $ "Cannot give swizzle '" ++ show (Swiz v s) ++ "' as function argument"
+
+ppfunc :: Binding t -> [Doc] -> Doc
+ppfunc r a = case r of
+    v @ (Var ret cal) -> pp v <> parens (commasep a)
+    Func r' a'      -> ppfunc r' (a ++ [checkArgType pp a'])
+    other           -> pperror "Invalid argument to function"
+
+ppapply :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr (a -> b) -> [Doc] -> Doc
+ppapply f a = case f of
+        Call g -> ppname g <> parens (commasep a)
+        Lam i r e -> pperror "(Function application NOT YET IMPLEMENTED)"
+        App g e -> ppapply g (a ++ [pp e])
+        Prim s -> pp s <> parens (commasep a)
+        Prim2 s -> pp s <> parens (commasep a)
+        BinOp s -> case a of [x,y] -> parens (x <+> pp s <+> y)
+
+ppname :: Binding t -> Doc
+ppname b = case b of
+    Var ret cal -> pp cal
+    Func ret arg -> ppname ret
