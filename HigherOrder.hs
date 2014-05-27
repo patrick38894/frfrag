@@ -12,6 +12,12 @@ infixr 0 \$
 infixr 1 \>
 infixr 1 \^
 
+class HFunctor f where 
+    hfmap :: Wrap f b => (a -> b) -> f a -> f b
+
+instance (Extract f) => HFunctor f where
+    hfmap f = wrap . f . extract
+ 
 (\>) :: Expr t -> Expr u -> Expr (t -> u)
 --(Val a) \> b = Lam a b
 (\>) = undefined
@@ -23,6 +29,9 @@ composeE = undefined
 (\^), liftE :: (Expr t -> Expr u) -> Expr (t -> u)
 (\^) = liftE
 liftE = undefined
+
+liftE' :: (t -> u) -> Expr (t -> u)
+liftE' f = undefined
 
 curryE :: (Expr a -> Expr b -> Expr c) -> Expr (a -> b -> c)
 curryE = undefined

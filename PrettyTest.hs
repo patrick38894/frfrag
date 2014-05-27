@@ -49,4 +49,20 @@ exprs = [   pp $ Float 3.1,
             pp $ App (Call (Func (Var IntT "ret") (Var IntT "param"))) (Int 3),
             pp $ App (App (Call (Func (Func (Var IntT "ret")
                     (Var IntT "inr")) (Var IntT "otr"))) (Int 3)) (Int 5)
-        ] 
+        ]
+
+decls = [   
+            pp $ Value (Var IntT "foo") (Int 7),
+            pp $ Value (Var BoolT "test")
+                (App (Call (Func (Var BoolT "ret") (Var IntT "param"))) (Int 3)),
+            pp $ Uniform (Var IntT "mouseY") Nothing,
+            pp $ Uniform (Var IntT "mouseX") (Just $ Int 320),
+            pp $ Procedure (Func (Var FloaT "ret") (Var FloaT "param"))
+                (Return (asTypeOf (App (Prim "sin") (Val (Var FloaT "param"))) (Float undefined))),
+            pp $ Procedure (Func (Var VoidT "changeRed") (Var FloaT "col"))
+                (Block [Mutate (Swiz FragColor "x") (Val (Var FloaT "col")), Terminate]),
+            pp $ Function (Func (Var IntT "double") (Var IntT "i"))
+               (Val (Var PolyT "i"))
+        ]
+
+main = printList (types ++ binds ++ exprs ++ decls) 

@@ -4,13 +4,6 @@ import Text.PrettyPrint.HughesPJ
 import Expressions
 import HigherOrder
 
-instance Extract Decl where 
-  extract e = case e of
-    Value name expr -> undefined
-    Uniform bind def -> undefined
-    --Procedure proc stmt -> undefined
-    --Function func expr -> undefined
-
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
     Uniform :: Binding t -> Maybe (Expr t) -> Decl t
@@ -34,23 +27,33 @@ data Stmt where
 
 ------------------------------------------------------------------------------
 
+instance Extract Decl where 
+  extract e = case e of
+    Value name expr -> undefined
+    Uniform bind def -> undefined
+    --Procedure proc stmt -> undefined
+    --Function func expr -> undefined
+
 instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Decl t) where
   pp decl = case decl of
-    Value b e       -> pp b <+> equals <+> pp e
+    Value b e       -> pp "const" <+> pp b <+> equals <+> pp e <> semi
     Uniform b e     -> pp b <> (case e of
-                        Just x -> empty <+> equals <+> pp x
+                        Just x -> pp "" <+> equals <+> pp x
                         Nothing -> empty ) <> semi  
-    Procedure b stmt -> pp b $+$ braceblock (pp stmt)
+    Procedure b stmt -> case stmt of 
+                             Block x -> pp b $+$ (pp stmt)
+                             other -> pp b $+$ braceblock (pp stmt)
     Function b expr -> pp b $+$ braceblock (pp "return" <+> pp expr <> semi)
    
 instance Pretty Stmt where
   pp s = case s of
-    Block xs -> braceblock . sep $ map pp xs
+    Block xs -> braceblock . vcat $ map pp xs
     DecVar b e -> pp b <+> equals <+> pp e <> semi
     Mutate b e -> (case b of
                     Var r nm -> pp nm
                     FragColor -> pp FragColor
-                    other -> error $ "Cannot mutate binding" ++ show other
+                    Swiz r s -> pp  (Swiz r s)
+                    other -> error $ "Cannot mutate binding '" ++ show other ++ "'"
                     ) <+> equals <+> pp e <> semi
     Switch p cs -> pp "switch" <> parens (pp p) $+$ braceblock (ppcases cs)
     IfElse p i e -> pp "if" <> parens (pp p) $+$ braceblock (pp i) 

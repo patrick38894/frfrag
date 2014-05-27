@@ -44,8 +44,8 @@ data Expr :: * -> * where
     BinOp :: String -> Expr (a -> b -> c)
     Val :: Binding t -> Expr t
     Call :: Binding (t -> u) -> Expr (t -> u)
-    Lam :: Int -> Rep t -> Expr u -> Expr (t -> u)
-    LamT :: Int -> Expr a
+    Rewrite :: Expr t -> Expr u -> Expr (t -> u)
+    Sym :: Rep a -> Int -> Expr a
     App :: (Pretty t, Wrap Expr t, Wrap Rep t) => Expr (t -> u) -> Expr t -> Expr u
     Last :: Stream (Expr a) -> Expr a
 
@@ -61,12 +61,6 @@ data Stream a where
 class Wrap f a where wrap :: a -> f a
 class Extract f where extract :: f a -> a
 
-class HFunctor f where 
-    hfmap :: Wrap f b => (a -> b) -> f a -> f b
-
-instance (Extract f) => HFunctor f where
-    hfmap f = wrap . f . extract
- 
 instance Wrap Rep Int where wrap = const IntT
 instance Wrap Rep Float where wrap = const FloaT
 instance Wrap Rep Bool where wrap = const BoolT
@@ -131,8 +125,7 @@ instance Pretty (Binding t) where
                                   other -> pp other) <> period <> pp s
     Void            -> empty
 
-instance Pretty (a->b) where
-    pp = const (error "Trying to pretty print via (a->b) instance (this shouldn't happen!)")
+instance Pretty (a->b) where pp = const $ pperror "Cannot print native or GLSL function"
 
 instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
   pp e = case e of
@@ -150,8 +143,8 @@ instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Expr t) where
     Prim2 s         -> pperror $ "Cannot call binary '" ++ s ++ "' without arguments"
     BinOp s         -> pperror $ "Cannot call binary op '" ++ s ++ "' without arguments"
     Call b          -> pperror $ "Cannot call function '" ++ show b ++ "' without arguments"
-    Lam i r e       -> pperror $ "Cannot print partially applied lambda binding '" ++ show r ++ "'"
-    LamT i          -> pperror $ "Cannot print lambda term " ++ show i
+    Rewrite r e     -> pperror $ "Cannot print partially applied abstraction"
+    Sym i r         -> pperror $ "Cannot print symbol '(" ++ show i ++ ")'"
 
 instance Show N where show = render . pp
 instance Pretty a => Show (VecN a) where show = render . pp
@@ -167,10 +160,10 @@ commasep = sep . punctuate comma
 commaseq :: Pretty a => [a] -> Doc
 commaseq = commasep . map pp
 braceblock :: Doc -> Doc
-braceblock = braces . nest 4
+braceblock x = lbrace $+$ nest 4 x $+$ rbrace
 
 checkArgType f a = case a of
-    Var r s -> f a
+    Var r s -> pp "const" <+> f a
     Func r x -> pperror $ "Cannot give function " ++ show (Func r x) ++ " as function argument"
     FragCoord -> pperror "Cannot give 'gl_FragCoord' as function argument"
     FragColor -> pperror "Cannot give 'gl_FragColor' as function argument"
@@ -185,7 +178,7 @@ ppfunc r a = case r of
 ppapply :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr (a -> b) -> [Doc] -> Doc
 ppapply f a = case f of
         Call g -> ppname g <> parens (commasep a)
-        Lam i r e -> pperror "(Function application NOT YET IMPLEMENTED)"
+        Rewrite r e -> pperror "(Function application NOT YET IMPLEMENTED)"
         App g e -> ppapply g (a ++ [pp e])
         Prim s -> pp s <> parens (commasep a)
         Prim2 s -> pp s <> parens (commasep a)

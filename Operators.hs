@@ -30,7 +30,7 @@ infixr 3 .>=
 unknownDimErr = error "Constructing vector of unknown dimension"
 
 negE :: (Num a, Num (Expr a), Pretty a, Wrap Expr a, Wrap Rep a) => Expr (a -> a)
-negE = Lam 0 PolyT (App (App subE (asTypeOf 0 (LamT 0))) (LamT 0))
+negE = Rewrite (Sym PolyT 0) (App (App subE (asTypeOf 0 (Sym PolyT 0))) (Sym PolyT 0))
 
 instance (Num a, Wrap Rep a) => Num (VecN a) where
     (+) = zipVec (+)
