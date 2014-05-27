@@ -1,9 +1,8 @@
 {-# Language GADTs #-}
 module Region where
-import CoreLanguage
+import Expressions
 import Operators
 import Vector
-import Primitive (notE, true)
 import Utility
 
 data Region where
