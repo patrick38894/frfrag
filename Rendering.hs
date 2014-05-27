@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.UI.GLFW as GLFW
 
-data Color      = Color {color :: GL.Color4 GLclampf}
+data RColor      = RColor {rcolor :: GL.Color4 GLclampf}
 
 -- The only thing we'll do with vertices is use them to draw the whole screen.
 toVertex2 :: (Float, Float) -> Vertex2 Float
@@ -97,7 +97,7 @@ createWindow title (sizex,sizey) = do
     GLFW.setWindowCloseCallback win (Just shutdown)
     return win
 
-drawInWindow :: [B.ByteString] -> Color -> Window -> IO ()
+drawInWindow :: [B.ByteString] -> RColor -> Window -> IO ()
 drawInWindow fragSources bgcolor win = do
     descriptors <- mapM initResources fragSources
     onDisplayMany bgcolor win descriptors
@@ -107,12 +107,12 @@ closeWindow win = do
     GLFW.destroyWindow win
     GLFW.terminate
 
-onDisplay :: Color -> Window -> (Program, Descriptor) -> IO ()
+onDisplay :: RColor -> Window -> (Program, Descriptor) -> IO ()
 onDisplay c w x = onDisplayMany c w [x]
 
-onDisplayMany :: Color -> Window -> [(Program, Descriptor)] -> IO ()
+onDisplayMany :: RColor -> Window -> [(Program, Descriptor)] -> IO ()
 onDisplayMany bgcolor win descriptors = do
-  GL.clearColor $= bgcolor
+  GL.clearColor $= rcolor bgcolor
   GL.clear [ColorBuffer]
   mapM_ drawFragment descriptors
   GLFW.swapBuffers win
@@ -126,11 +126,11 @@ drawFragment (program, (Descriptor triangles firstIndex numVertices)) = do
   bindVertexArrayObject $= Just triangles
   drawArrays Triangles firstIndex numVertices
 
-shadeWindow :: [B.ByteString] -> String -> (Int, Int) -> Color -> IO ()
-shadeWindow fragSources title (h,w) color = do
+shadeWindow :: [B.ByteString] -> String -> (Int, Int) -> RColor -> IO ()
+shadeWindow fragSources title (h,w) col = do
     win <- createWindow title (h,w)
-    drawInWindow fragSources color win
+    drawInWindow fragSources col win
     closeWindow win
 
 shadeWindowDef :: [B.ByteString] -> String -> (Int, Int) -> IO ()
-shadeWindowDef fs t d = shadeWindow fs t d (color 1 1 1 1)
+shadeWindowDef fs t d = shadeWindow fs t d (RColor (Color4 1 1 1 1))

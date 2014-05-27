@@ -1,4 +1,4 @@
-import Data.ByteString.Char8
+import Data.ByteString.Char8 as B
 import Rendering
 
 -- main = maindelbrotV1
@@ -20,7 +20,9 @@ regionShaderGLSL = ""
 mandelbrotShaderGLSL = ""
 
 
-main = testBStr terminateShaderGLSL
+main = do
+    mandelbrotGLSL <- Prelude.readFile "Mandelbrot.frag"
+    testBStr mandelbrotGLSL
 
 testBStr s = do
     Prelude.putStrLn s
