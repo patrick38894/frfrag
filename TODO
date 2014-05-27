@@ -5,12 +5,14 @@ Broad goals
 * Print and run test cases:
     * Minimal shader
     * Color
-    * Overload math
-    * Operators for vector math
-    * Region
-    * Mandelbrot
-    * Newton fractal
-    * Voronoi cells
+    * A more interesting shader (glow/texture)
+    * Region: Remake "house drawing" with flat color, and shader.
+    * Reactions. Follow mouse, change color.
+    * Remake paddleball game.
+* Cool exmaples:
+    * Mandelbrot explorer
+    * Newton fractal explorer
+    * Voronoi cells (react to mouse)
     * Raindrops/ripples
     * Starfield
 
@@ -24,12 +26,3 @@ Broad goals
 * "Compile" a shader - extract static declarations and compute them once,
     unfold finite recursion, convert things to SSA, applies reduction rules, etc.
 * Add structure/type checker.
-
-
-Pipeline
---------
-Haskell exprs (program description) -> (Eventually typecheck) -> PrettyPrint -> Bind to uniform pipe output
-
-GLSL inputs/Time -> Event/Behavior processors -> Bind to uniform pipe input
-
-Main loop: handle input and output between the pipes, refresh clock/screen
