@@ -62,7 +62,10 @@ decls = [
             pp $ Procedure (Func (Var VoidT "changeRed") (Var FloaT "col"))
                 (Block [Mutate (Swiz FragColor "x") (Val (Var FloaT "col")), Terminate]),
             pp $ Function (Func (Var IntT "double") (Var IntT "i"))
-               (Val (Var PolyT "i"))
+               (Val (Var IntT "i") * 2)
+            
         ]
+
+
 
 main = printList (types ++ binds ++ exprs ++ decls) 

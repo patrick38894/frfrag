@@ -8,7 +8,7 @@ data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
     Uniform :: Binding t -> Maybe (Expr t) -> Decl t
     Procedure :: Binding (a -> r) -> Stmt -> Decl (a -> r)
-    Function :: Binding (a -> r) -> Expr (a -> r) -> Decl (a -> r)
+    Function :: (Pretty a, Wrap Expr a, Wrap Rep a) => Binding (a -> r) -> Expr a -> Decl (a -> r)
 
 
 data Stmt where
@@ -43,7 +43,8 @@ instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Decl t) where
     Procedure b stmt -> case stmt of 
                              Block x -> pp b $+$ (pp stmt)
                              other -> pp b $+$ braceblock (pp stmt)
-    Function b expr -> pp b $+$ braceblock (pp "return" <+> pp expr <> semi)
+    Function b expr -> pp b $+$ braceblock (pp "return" 
+                                <+> pp expr <> semi)
    
 instance Pretty Stmt where
   pp s = case s of
