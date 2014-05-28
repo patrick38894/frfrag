@@ -3,6 +3,7 @@ module Statements where
 import Text.PrettyPrint.HughesPJ
 import Expressions
 import HigherOrder
+import Control.Monad(guard)
 
 data Decl :: * -> * where
     Value :: Binding t -> Expr t -> Decl t
@@ -34,6 +35,15 @@ instance Extract Decl where
     --Procedure proc stmt -> undefined
     --Function func expr -> undefined
 
+instance REq Decl where
+    Value b e ~~ Value b' e' = do Refl <- b ~~ b'; Refl <- e ~~ e'; Just Refl
+    Uniform b (Just d) ~~ Uniform b' (Just d') = 
+        do Refl <- b ~~ b'; Refl <- d ~~ d'; Just Refl
+    Uniform b Nothing ~~ Uniform b' Nothing = b ~~ b'
+    Procedure b s ~~ Procedure b' s' = do guard (s == s'); Refl <- b ~~ b'; Just Refl
+    Function b e ~~ Function b' e' = do Refl <- b ~~ b'; Refl <- e ~~ e'; Just Refl
+    a ~~ b = Nothing
+
 instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Decl t) where
   pp decl = case decl of
     Value b e       -> pp "const" <+> pp b <+> equals <+> pp e <> semi
@@ -45,7 +55,10 @@ instance (Wrap Expr t, Wrap Rep t, Pretty t) => Pretty (Decl t) where
                              other -> pp b $+$ braceblock (pp stmt)
     Function b expr -> pp b $+$ braceblock (pp "return" 
                                 <+> pp expr <> semi)
-   
+instance Eq Stmt where
+    Block a == Block b = a == b 
+    DecVar b e == DecVar b' e' = b ~= b' && e ~= e'
+
 instance Pretty Stmt where
   pp s = case s of
     Block xs -> braceblock . vcat $ map pp xs

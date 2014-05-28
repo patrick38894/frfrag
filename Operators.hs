@@ -26,11 +26,13 @@ infixr 3 .>=
 (.>) = gtE
 (.>=) = gteE
 
+freshSym :: Wrap Rep a => Expr a 
+freshSym = Sym (PolyT 0) 0
 
 unknownDimErr = error "Constructing vector of unknown dimension"
 
 negE :: (Num a, Num (Expr a), Pretty a, Wrap Expr a, Wrap Rep a) => Expr (a -> a)
-negE = Rewrite (Sym PolyT 0) (App (App subE (asTypeOf 0 (Sym PolyT 0))) (Sym PolyT 0))
+negE = Rewrite freshSym (App (App subE (asTypeOf 0 freshSym)) freshSym)
 
 instance (Num a, Wrap Rep a) => Num (VecN a) where
     (+) = zipVec (+)
@@ -56,7 +58,7 @@ instance Num (Expr Float) where
     negate = App negE
     fromInteger = Float . fromInteger
 
-instance (Num a, Pretty a, Wrap Expr a, Wrap Rep a) => Num (Expr (VecN a)) where
+instance (Eq a, Num a, Pretty a, Wrap Expr a, Wrap Rep a) => Num (Expr (VecN a)) where
     (+) = App . App addE
     (*) = App . App mulE
     abs = App absE
@@ -72,7 +74,7 @@ instance Fractional (Expr Float) where
     (/) = App . App fdivE
     fromRational = Float . fromRational
 
-instance (Fractional a, Pretty a, Wrap Expr a, Wrap Rep a) => Fractional (Expr (VecN a)) where
+instance (Eq a, Fractional a, Pretty a, Wrap Expr a, Wrap Rep a) => Fractional (Expr (VecN a)) where
     (/) = App . App fdivE
     fromRational = unknownDimErr
 
@@ -106,7 +108,7 @@ instance Floating (Expr Float) where
     acosh = App acoshE
     atanh = App atanhE
 
-instance (Floating a, Pretty a, Wrap Expr a, Wrap Rep a) =>  Floating (Expr (VecN a)) where
+instance (Eq a, Floating a, Pretty a, Wrap Expr a, Wrap Rep a) =>  Floating (Expr (VecN a)) where
     pi = unknownDimErr
     exp = App expE
     log = App logE

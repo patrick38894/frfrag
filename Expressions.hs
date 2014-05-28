@@ -23,14 +23,14 @@ data Rep :: * -> * where
     FuncT :: Rep r -> Rep a -> Rep (a -> r)
     VecT :: Rep t -> N -> Rep (VecN t)
     MatT :: Rep t -> N -> N -> Rep (MatN t)
-    PolyT :: Rep a
+    PolyT :: Wrap Rep a => Int -> Rep a
     VoidT :: Rep ()
 
 data Binding :: * -> * where
     FragCoord :: Binding (VecN Float)
     FragColor :: Binding (VecN Float)
     Var :: Rep t -> String -> Binding t
-    Swiz :: Binding v -> String -> Binding x
+    Swiz :: Wrap Rep v => Binding (VecN v) -> String -> Binding v
     Func :: Binding r -> Binding a -> Binding (a -> r)
     Void :: Binding ()
 
@@ -38,8 +38,8 @@ data Expr :: * -> * where
     Float :: Float -> Expr Float
     Bool :: Bool -> Expr Bool
     Int :: Int -> Expr Int
-    Vec :: Rep (VecN t) -> VecN t -> Expr (VecN t)
-    Mat :: Rep (MatN t) -> MatN t -> Expr (MatN t)
+    Vec :: Eq t => Rep (VecN t) -> VecN t -> Expr (VecN t)
+    Mat :: Eq t => Rep (MatN t) -> MatN t -> Expr (MatN t)
     Prim :: String -> Expr (a -> b)
     Prim2 :: String -> Expr (a -> b -> c)
     BinOp :: String -> Expr (a -> b -> c)
@@ -62,32 +62,50 @@ data Stream a where
 class Wrap f a where wrap :: a -> f a
 class Extract f where extract :: f a -> a
 
+
+data Refl :: (k -> k -> *) where Refl :: Refl a a
+class REq f where
+    (~~) :: f a -> f b -> Maybe (Refl a b)
+    (~=) :: f a -> f b -> Bool
+    a ~= b = case a ~~ b of Just Refl -> True; Nothing -> False
+instance Show (Refl a b) where show r = "Refl"
+
 instance Wrap Rep Int where wrap = const IntT
 instance Wrap Rep Float where wrap = const FloaT
 instance Wrap Rep Bool where wrap = const BoolT
 instance Wrap Rep a => Wrap Rep (VecN a) where
     wrap v = VecT (wrap $ vX v) (vecSize v)
 
+instance Extract Rep where
+    extract e = case e of
+        FloaT -> 0.0
+        IntT -> 0
+        BoolT -> False
+        VecT r n -> vecFromList (replicate (asInt n) (extract r))
+        MatT r n m -> matFromList (replicate (asInt m) (replicate (asInt n) (extract r)))
+
+instance Extract Binding where
+    extract e = case e of
+        FragCoord -> Vec4 0 0 0 0
+        FragColor -> Vec4 0 0 0 0
+        
 instance Extract Expr where 
   extract e = case e of
     Float x -> x
     Int x -> x
+    Bool x -> x
     Vec r x -> x
     Mat r x -> x
 
 instance Wrap Expr Int where wrap = Int
 instance Wrap Expr Float where wrap = Float
 instance Wrap Expr Bool where wrap = Bool
-instance (Wrap Rep a, Wrap Expr a) => Wrap Expr (VecN a) where
+instance (Wrap Rep a, Wrap Expr a, Eq a) => Wrap Expr (VecN a) where
     wrap v = Vec (case v of Vec2 a _ -> VecT (wrap a) N2
                             Vec3 a _ _ -> VecT (wrap a) N3
                             Vec4 a _ _ _ -> VecT (wrap a) N4) v
 instance Wrap Rep (a -> b) where wrap = error "No GLSL representation for function types"
 instance Wrap Expr (a -> b) where wrap = error "No GLSL representation for function types"
-
-data Refl :: (k -> k -> *) where Refl :: Refl a a
-class REq f where (~~) :: f a -> f b -> Maybe (Refl a b)
-instance Show (Refl a b) where show r = "Refl"
 
 instance REq Rep where
     BoolT ~~ BoolT = Just Refl
@@ -96,10 +114,61 @@ instance REq Rep where
     FuncT r a ~~ FuncT r' a' = do Refl <- r ~~ r'; Refl <- a ~~ a'; Just Refl
     VecT r n ~~ VecT r' n' = do guard (n == n'); Refl <- r ~~ r'; Just Refl
     MatT r n m ~~ MatT r' n' m' = do guard (n == n' && m == m'); Refl <- r ~~ r'; Just Refl
-    PolyT ~~ PolyT = undefined --- Just Refl
+    (a @ (PolyT i)) ~~ (b @ (PolyT j)) = do guard (i == j)
+                                            Refl <- (getRep (extract a) ~~ getRep (extract b))
+                                            Just Refl
     VoidT ~~ VoidT = Just Refl
     a ~~ b = Nothing
 
+instance REq Binding where
+    FragCoord ~~ FragCoord = Just Refl
+    FragColor ~~ FragColor = Just Refl
+    Var b s ~~ Var b' s'    = do guard (s == s'); Refl <- b ~~ b'; Just Refl
+    (x @ (Swiz b s)) ~~ (y @ (Swiz b' s')) = do 
+        guard (s == s')
+        Refl <- getRep (extract x) ~~ getRep (extract y)
+        Just Refl
+    Func r a ~~ Func r' a' = do Refl <- r ~~ r'; Refl <- a ~~ a'; Just Refl
+    Void ~~ Void = Just Refl
+    a ~~ b = Nothing
+
+
+instance REq Expr where
+    Float a ~~ Float b = do guard (a == b); Just Refl
+    Bool a ~~ Bool b = do guard (a == b); Just Refl
+    Int a ~~ Int b = do guard (a == b); Just Refl
+    Vec (VecT r n) x ~~ Vec (VecT r' n') x' = do 
+        Refl <- r ~~ r'
+        guard (n == n' && x == x')
+        Just Refl
+    Mat (MatT r n m) x ~~ Mat (MatT r' n' m') x' = do
+        Refl <- r ~~ r'
+        guard (n == n' && m == m' && x == x')
+        Just Refl
+    (p @ (Prim s)) ~~ (p' @ (Prim s')) = do
+        guard (s == s')
+        Refl <- getRep (extract p) ~~ getRep (extract p')
+        Just Refl
+    (p @ (Prim2 s)) ~~ (p' @ (Prim2 s')) = do
+        guard (s == s')
+        Refl <- getRep (extract p) ~~ getRep (extract p')
+        Just Refl   
+    (p @ (BinOp s)) ~~ (p' @ (BinOp s')) = do
+        guard (s == s')
+        Refl <- getRep (extract p) ~~ getRep (extract p')
+        Just Refl
+    Val b ~~ Val b' = b ~~ b'
+    Call b ~~ Call b' = b ~~ b'
+    Rewrite t u ~~ Rewrite t' u' = do
+        Refl <- t ~~ t'
+        Refl <- u ~~ u'
+        Just Refl
+    Sym r i ~~ Sym r' i' = do guard (i == i'); Refl <- r ~~ r'; Just Refl
+    App f x ~~ App f' x' = do Refl <- f ~~ f'; Refl <- x ~~ x'; Just Refl
+    Last s ~~ Last s' = error "Stream equality not yet implemented"
+
+getRep :: Wrap Rep a => a -> Rep a
+getRep = wrap
 ------------------------------------------------------------------------------
 data SyntaxError = SyntaxError String
 class Pretty a where pp :: a -> Doc
@@ -123,7 +192,7 @@ instance Pretty (Rep t) where
     MatT r n m  -> getInitial r <> pp "mat" <> pp n
                     <> if m == n then empty else pp "x" <> pp m
     VoidT       -> pp "void"
-    PolyT       -> pperror "Polymorphic type not implemented"
+    PolyT i     -> pperror "Polymorphic type not implemented"
     FuncT r a   -> pperror "First-class function type not implemented"
     where getInitial r = pp $ case r of 
             BoolT   -> "b"
@@ -136,9 +205,7 @@ instance Pretty (Binding t) where
     FragColor       -> pp "gl_FragColor"
     Var r nm        -> pp r <+> pp nm
     Func r a        -> ppfunc r [ checkArgType pp a ]
-    Swiz b s        -> (case b of Var r nm -> pp nm
-                                  Func r a -> pperror "Function swizzling not implemented"
-                                  other -> pp other) <> period <> pp s
+    Swiz b s        -> (case b of Var t nm -> pp nm) <> period <> pp s
     Void            -> empty
 
 instance Pretty (a->b) where pp = const $ pperror "Cannot print native or GLSL function"
@@ -178,12 +245,13 @@ commaseq = commasep . map pp
 braceblock :: Doc -> Doc
 braceblock x = lbrace $+$ nest 4 x $+$ rbrace
 
+checkArgType :: (Binding t -> Doc) -> Binding t -> Doc 
 checkArgType f a = case a of
     Var r s -> pp "const" <+> f a
     Func r x -> pperror $ "Cannot give function " ++ show (Func r x) ++ " as function argument"
     FragCoord -> pperror "Cannot give 'gl_FragCoord' as function argument"
     FragColor -> pperror "Cannot give 'gl_FragColor' as function argument"
-    Swiz v s -> pperror $ "Cannot give swizzle '" ++ show (Swiz v s) ++ "' as function argument"
+    Swiz v s -> pperror $ "Cannot give swizzle as function argument"
 
 ppfunc :: Binding t -> [Doc] -> Doc
 ppfunc r a = case r of

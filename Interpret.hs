@@ -11,8 +11,6 @@ import Vector
 import Control.Monad.State
 import Data.Maybe
 
-instance REq (Decl a) (Decl b)
-
 type Interpret = State Fragment
 data Fragment where Fragment :: Env -> Scope -> Region -> Fragment
 type Scope = Stmt

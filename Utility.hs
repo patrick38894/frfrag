@@ -4,10 +4,10 @@ import Expressions
 import HigherOrder
 import Vector
 
-getRep :: Wrap Rep a => a -> Rep a
-getRep = wrap
 
 fragCoord = Val FragCoord
+
+coordX,coordY :: Wrap Rep Float => Expr Float
 coordX = sX FragCoord
 coordY = sY FragCoord
 
@@ -26,6 +26,7 @@ gZ (Vec r v) = wrap (vZ v)
 gW (Vec r v) = wrap (vW v)
 
 -- Swizzle a named vector
+sX, sY, sZ, sW :: Wrap Rep v => Binding (VecN v) -> Expr v
 sX c = Val (Swiz c "x")
 sY c = Val (Swiz c "y")
 sZ c = Val (Swiz c "z")
