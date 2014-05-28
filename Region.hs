@@ -48,4 +48,12 @@ ellipse :: Expr (VecN Float) -> Expr (VecN Float) -> Region
 ellipse c r = let v = Var "ellipseLAMBDA" vec4 in
     Predicate (v \> (one .> ((gX c/gX r)**two + (gY c/gY r)**two)))
 
+
+Make shapes data, then make predicate funcs for outline and fill
+-- triangle
+-- polygon
+
+-- Useful predicates :: Shape -> (VecN Float -> Bool)
+-- Outline (draw a shape with a thickness)
+-- Fill (draw within a curve with a thickness)
 -}
