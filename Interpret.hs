@@ -1,4 +1,4 @@
-{-# Language FlexibleContexts, GADTs, MultiParamTypeClasses #-}
+{-# Language FlexibleContexts, GADTs, MultiParamTypeClasses, RankNTypes #-}
 
 module Interpret where
 
@@ -7,16 +7,20 @@ import Region
 import Utility
 import Statements
 import Vector
-
 import Control.Monad.State
 import Data.Maybe
 
 type Interpret = State Fragment
-data Fragment where Fragment :: Env -> Scope -> Region -> Fragment
-type Scope = Stmt
+data Fragment = Fragment {env :: Env, scope :: Scope, region :: Region, counter :: Int}
+type Scope = [Stmt]
 data Env where
     Empty :: Env
     Extend :: Decl a -> Env -> Env    
+
+lookUpProjection :: Eq b => (forall a . Decl a -> b) -> b -> Env -> Bool
+lookUpProjection p s e = case e of
+    Empty -> False
+    Extend d' e' -> if s == p d' then True else lookUpProjection p s e'
 
 lookUpDecl :: Decl a -> Env -> Maybe (Decl a)
 lookUpDecl d e = case e of
@@ -25,48 +29,63 @@ lookUpDecl d e = case e of
                     Just Refl -> Just d'
                     Nothing -> lookUpDecl d e'
 
+lookUpP :: Eq b => (forall a . Decl a -> b) -> b -> Interpret Bool
+lookUpP p s = do
+    frag <- get
+    return $ lookUpProjection p s (env frag)
+
+nameExists :: String -> Interpret Bool
+nameExists = lookUpP declName
+
+declName d = case d of
+    Value (Var t n) e -> n
+    Uniform (Var t n) e -> n
+
 lookUpD :: Decl a -> Interpret (Maybe (Decl a))
 lookUpD d = do
-    Fragment e _ _ <- get
-    return $ lookUpDecl d e
-
-lookupName :: String -> Interpret (Maybe (Binding a))
-lookupName = undefined
+    frag <- get
+    return $ lookUpDecl d (env frag)
 
 extend :: (Pretty a, Wrap Expr a, Wrap Rep a) => Decl a -> Interpret (Decl a)
 extend decl = do
     alreadyDefined <- lookUpD decl
     case alreadyDefined of
         Nothing -> do
-            withState (\(Fragment e s r) -> Fragment (Extend decl e) s r) (return decl)
+            withState (\fr -> fr { env = Extend decl (env fr) }) (return decl)
         Just decl -> error $ "Redeclaration of " ++ show decl
 
-check :: Interpret Fragment
-check = undefined
+getUniforms :: Env -> Env
+getUniforms = getUniforms' Empty
 
-newName :: Interpret String
-newName = undefined
+getUniforms' :: Env -> Env -> Env
+getUniforms' acc env = case env of
+    Empty -> Empty
+    Extend d env' -> case d of
+        Uniform b e -> getUniforms' (Extend d acc) env'
+        other -> getUniforms' acc env'
 
-getVarsInScope :: Scope -> Env -> Interpret Env
-getVarsInScope = undefined
+emptyFragment = Fragment {env = Empty, scope = [], region = Anywhere, counter = 0}
 
-getUniforms :: Env -> Interpret Env
-getUniforms = undefined
-
-interpret :: Interpret Fragment -> Fragment
-interpret = undefined
+interpret :: Interpret a -> Fragment
+interpret e = execState e emptyFragment
 
 declval :: (Wrap Rep a, Wrap Expr a, Pretty a) => (Binding a -> Maybe (Expr a) -> Decl a) -> 
            Binding a -> Maybe (Expr a) -> Interpret (Expr a)
 declval f (v @ (Var tp nm)) def = do
-    alreadyDefined <- lookupName nm
-    case alreadyDefined of
-        Nothing -> extend (f v def)
-        Just b -> error $ "Redeclaration of " ++ show b
+    alreadyDefined <- nameExists nm
+    if alreadyDefined
+        then extend (f v def)
+        else error $ "Redeclaration of " ++ nm
     return (Val v)
        
 uniform :: (Wrap Expr a, Wrap Rep a, Pretty a) => Binding a -> Maybe (Expr a) -> Interpret (Expr a)
 uniform = declval Uniform
+
+newName :: Interpret String
+newName = do
+    frag <- get
+    put $ frag {counter = counter frag + 1}
+    return $ "generated" ++ show (counter frag)
  
 value :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr a -> Interpret (Expr a)
 value e = do
@@ -74,9 +93,26 @@ value e = do
     declval (\b d -> Value b (fromJust d)) (Var (wrap $ extract e) name) (Just e)
 
 function :: Expr (a -> b) -> Interpret (Expr (a -> b))
-function = undefined
+function f = do
+    case f of
+        Prim s -> undefined
+        Rewrite t u -> undefined
+        App f e -> undefined
+        Call r -> undefined
+        other -> error "Invalid function expression"
 
-setColor :: Expr (VecN Float) -> Interpret Fragment
-setColor = undefined
+setColor :: Expr (VecN Float) -> Interpret ()
+setColor e = thenDo (Mutate FragColor e)
 
+procedure :: Stmt -> Interpret (Expr a)
+procedure = undefined
 
+thenDo :: Stmt -> Interpret ()
+thenDo s = do
+    frag <- get
+    put (frag {scope = scope frag ++ [s]})
+
+firstDo :: Stmt -> Interpret ()
+firstDo s = do
+    frag <- get
+    put (frag {scope = s : scope frag})
