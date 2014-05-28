@@ -11,12 +11,6 @@ import Vector
 import Control.Monad.State
 import Data.Maybe
 
-data Refl a b where
-    Refl :: Refl a a
-
-class REq a b where
-    (~~) :: a -> b -> Maybe (Refl a b)
-
 instance REq (Decl a) (Decl b)
 
 type Interpret = State Fragment

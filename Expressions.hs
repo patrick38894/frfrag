@@ -2,7 +2,7 @@
              FlexibleContexts,
              FlexibleInstances,
              GADTs,
-             KindSignatures,
+             PolyKinds,
              MultiParamTypeClasses,
              RankNTypes,
              TypeSynonymInstances,
@@ -12,6 +12,7 @@
 module Expressions where
 import Vector
 import Text.PrettyPrint.HughesPJ hiding (float, int)
+import Control.Monad(guard)
 
 ------------------------------------------------------------------------------
 -- GLSL language representation ----------------------------------------------
@@ -83,6 +84,21 @@ instance (Wrap Rep a, Wrap Expr a) => Wrap Expr (VecN a) where
                             Vec4 a _ _ _ -> VecT (wrap a) N4) v
 instance Wrap Rep (a -> b) where wrap = error "No GLSL representation for function types"
 instance Wrap Expr (a -> b) where wrap = error "No GLSL representation for function types"
+
+data Refl :: (k -> k -> *) where Refl :: Refl a a
+class REq f where (~~) :: f a -> f b -> Maybe (Refl a b)
+instance Show (Refl a b) where show r = "Refl"
+
+instance REq Rep where
+    BoolT ~~ BoolT = Just Refl
+    IntT ~~ IntT = Just Refl
+    FloaT ~~ FloaT = Just Refl
+    FuncT r a ~~ FuncT r' a' = do Refl <- r ~~ r'; Refl <- a ~~ a'; Just Refl
+    VecT r n ~~ VecT r' n' = do guard (n == n'); Refl <- r ~~ r'; Just Refl
+    MatT r n m ~~ MatT r' n' m' = do guard (n == n' && m == m'); Refl <- r ~~ r'; Just Refl
+    PolyT ~~ PolyT = undefined --- Just Refl
+    VoidT ~~ VoidT = Just Refl
+    a ~~ b = Nothing
 
 ------------------------------------------------------------------------------
 data SyntaxError = SyntaxError String
