@@ -1,4 +1,11 @@
-{-# Language FlexibleContexts, GADTs, MultiParamTypeClasses, RankNTypes #-}
+{-# Language 
+             FlexibleContexts,
+             FlexibleInstances,
+             GADTs,
+             MultiParamTypeClasses,
+             RankNTypes,
+             TypeSynonymInstances
+ #-}
 
 module Interpret where
 
@@ -9,13 +16,35 @@ import Statements
 import Vector
 import Control.Monad.State
 import Data.Maybe
+import Text.PrettyPrint.HughesPJ
 
 type Interpret = State Fragment
 data Fragment = Fragment {env :: Env, scope :: Scope, region :: Region, counter :: Int}
-type Scope = [Stmt]
+instance Pretty Fragment where
+    pp frag =  pp (env frag)
+           $+$ ppregion (region frag) (scope frag)
+instance Pretty (Interpret a) where pp = pp . interpret 
+instance Show Fragment where show = render . pp
+instance Show (Interpret a) where show = render.pp
+    
+newtype Scope = Scope [Stmt]
+instance Pretty Scope where
+    pp (Scope xs) = vcat . map pp $ xs
 data Env where
     Empty :: Env
-    Extend :: Decl a -> Env -> Env    
+    Extend :: (Pretty a, Wrap Expr a, Wrap Rep a) => Decl a -> Env -> Env    
+instance Pretty Env where
+    pp Empty = empty
+    pp (Extend d ds) = pp d $+$ pp ds
+
+ppregion :: Region -> Scope -> Doc
+ppregion r xs = pp "void main ()"
+    $+$ braceblock (case r of
+        Anywhere -> pp xs)
+
+
+makeSource :: Interpret a -> String
+makeSource = show . interpret
 
 lookUpProjection :: Eq b => (forall a . Decl a -> b) -> b -> Env -> Bool
 lookUpProjection p s e = case e of
@@ -64,7 +93,7 @@ getUniforms' acc env = case env of
         Uniform b e -> getUniforms' (Extend d acc) env'
         other -> getUniforms' acc env'
 
-emptyFragment = Fragment {env = Empty, scope = [], region = Anywhere, counter = 0}
+emptyFragment = Fragment {env = Empty, scope = Scope [], region = Anywhere, counter = 0}
 
 interpret :: Interpret a -> Fragment
 interpret e = execState e emptyFragment
@@ -75,7 +104,7 @@ declval f (v @ (Var tp nm)) def = do
     alreadyDefined <- nameExists nm
     if alreadyDefined
         then extend (f v def)
-        else error $ "Redeclaration of " ++ nm
+        else extend (f v def) -- error $ "Redeclaration of value " ++ nm
     return (Val v)
        
 uniform :: (Wrap Expr a, Wrap Rep a, Pretty a) => Binding a -> Maybe (Expr a) -> Interpret (Expr a)
@@ -110,9 +139,9 @@ procedure = undefined
 thenDo :: Stmt -> Interpret ()
 thenDo s = do
     frag <- get
-    put (frag {scope = scope frag ++ [s]})
+    put (case scope frag of Scope xs -> frag {scope = Scope $ xs ++ [s]})
 
 firstDo :: Stmt -> Interpret ()
 firstDo s = do
     frag <- get
-    put (frag {scope = s : scope frag})
+    put (case scope frag of Scope xs -> frag {scope = Scope (s : xs)})

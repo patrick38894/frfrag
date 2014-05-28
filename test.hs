@@ -1,26 +1,10 @@
+module Main where
+import PrettyTest
 import Data.ByteString.Char8 as B
 import Rendering
+import Interpret
 
--- main = maindelbrotV1
-
--- The following three shaders do the same thing.
--- They _are_ different, which will be important later.
---
--- GLFW/OpenGL evidently runs an empty string as a shader
--- which does nothing and doesn't complain.
-emptyShader = ""
--- Discard stops the shader computation immediately.
-discardShaderGLSL = "void main(){ discard; }"
--- Return terminates the current scope (within a function that returns void),
--- but the shader continues to evaluate.
-terminateShaderGLSL = "void main() { return; }"
--- 
-redShaderGLSL = ""
-regionShaderGLSL = ""
-mandelbrotShaderGLSL = ""
-
-
-main = do
+mandelGLSL = do
     mandelbrotGLSL <- Prelude.readFile "Mandelbrot.frag"
     testBStr mandelbrotGLSL
 
@@ -28,4 +12,6 @@ testBStr s = do
     Prelude.putStrLn s
     shadeWindowDef [pack s] "TestWindow" (1280, 960)
 
-
+red = testBStr (makeSource redProgram)
+xy = testBStr (makeSource xyGradients)
+main = xy

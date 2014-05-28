@@ -3,7 +3,7 @@ module Utility where
 import Expressions
 import HigherOrder
 import Vector
-
+import Synonyms
 
 fragCoord = Val FragCoord
 
@@ -19,6 +19,12 @@ rep4 y = Vec4 y y y y
 pointXY :: Num a => a -> a -> VecN a
 pointXY a b = Vec4 a b 1 1
 
+pointXYE :: Expr (VecN Float) -> Expr (VecN Float)
+pointXYE v = case v of 
+    Vec vec2 (Vec2 a b) -> Vec vec4 (Vec4 a b 1 1)
+    Val b -> Vec vec4 (Vec4 (Swiz b "x") (Swiz b "y") 1 1)
+    other -> error $ show other
+    
 gX, gY, gZ, gW :: Wrap Expr a => Expr (VecN a) -> Expr a
 gX (Vec r v) = wrap (vX v)
 gY (Vec r v) = wrap (vY v)
@@ -37,3 +43,5 @@ zero = Float 0
 one = Float 1
 two = Float 2
 
+vec :: [Float] -> Expr (VecN Float)
+vec = wrap . vecFromList
