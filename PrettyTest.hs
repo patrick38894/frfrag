@@ -26,7 +26,6 @@ types = [   pp BoolT,
             pp IntT,
             pp FloaT, 
             pp $ VecT IntT N2,
-            pp $ MatT FloaT N2 N3,
             pp VoidT
         ]
 
@@ -47,7 +46,6 @@ exprs = [   pp $ Float 3.1,
             pp $ Int 4,
             pp $ Bool True,
             pp vec2test,
-            -- pp $ Mat (MatT FloaT N3 N2) (Vec3 vec2test vec2test vec2test)
             pp $ App sinE vec2test,
             pp $ App (App powE (Float 2.0)) (Float 3.0),
             pp $ vec2test + vec2test,
@@ -83,8 +81,13 @@ programs = [pp $ interpret (return emptyFragment),
 redProgram = setColor (vec [1, 0, 0, 1])
 
 xyGradients = do
-    windowSize <- value (vec [640, 480])
-    setColor (fragCoord / (pointXYE windowSize))
+    windowSize <- value (vec [1280, 960])
+    setColor (fragCoord / (pointXYE windowSize * vec4 5))
 
+xySin = do
+    windowSize <- value (pointXYE $ vec [1280, 960])
+    factor <- value (pointXYE $ vec [0.2,0.1])
+    (Val sin1) <- value $ sin (fragCoord * factor)
+    setRed (Val (Swiz sin1 "x"))
 
 runTests = printList (types ++ binds ++ exprs ++ decls) 

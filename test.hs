@@ -13,5 +13,5 @@ testBStr s = do
     shadeWindowDef [pack s] "TestWindow" (1280, 960)
 
 red = testBStr (makeSource redProgram)
-xy = testBStr (makeSource xyGradients)
+xy = testBStr (makeSource xySin)
 main = xy

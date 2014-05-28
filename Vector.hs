@@ -1,4 +1,4 @@
-{-# Language GADTs, StandaloneDeriving #-}
+{-# Language DeriveFunctor, GADTs, StandaloneDeriving #-}
 module Vector where
 
 data N = N2 | N3 | N4 deriving (Eq, Ord)
@@ -8,9 +8,11 @@ data VecN a where
     Vec3 :: a -> a -> a -> VecN a
     Vec4 :: a -> a -> a -> a -> VecN a
 deriving instance Eq a => Eq (VecN a)
+deriving instance Functor VecN
 
 data MatN t = MatN (VecN (VecN t))
 deriving instance Eq a => Eq (MatN a)
+deriving instance Functor MatN
 
 asInt n = (case n of N2 -> 2; N3 -> 3; N4 -> 4) :: Int
 

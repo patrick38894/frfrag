@@ -11,8 +11,6 @@ import Utility
 import Vector
 import HigherOrder
 
-deriving instance Functor VecN
-deriving instance Functor MatN
 infixr 2 .&&
 infixr 2 .||
 infixr 3 .<
@@ -26,12 +24,9 @@ infixr 3 .>=
 (.>) = gtE
 (.>=) = gteE
 
-freshSym :: Wrap Rep a => Expr a 
-freshSym = Sym (PolyT 0) 0
-
 unknownDimErr = error "Constructing vector of unknown dimension"
 
-negE :: (Num a, Num (Expr a), Pretty a, Wrap Expr a, Wrap Rep a) => Expr (a -> a)
+negE :: (Eq a, Num a, Num (Expr a), Pretty a, Wrap Expr a, Wrap Rep a) => Expr (a -> a)
 negE = Rewrite freshSym (App (App subE (asTypeOf 0 freshSym)) freshSym)
 
 instance (Num a, Wrap Rep a) => Num (VecN a) where

@@ -5,6 +5,24 @@ import HigherOrder
 import Vector
 import Synonyms
 
+float = FloaT
+int = IntT
+bool = BoolT
+
+true = Bool True
+false = Bool False
+freshSym :: Wrap Rep a => Expr a 
+freshSym = Sym (PolyT 0) 0
+
+scalar :: Float -> Expr Float
+scalar = wrap
+vecRepeat :: Int -> Float -> Expr (VecN Float)
+vecRepeat n x = vec $ replicate n x
+
+vec2 = vecRepeat 2
+vec3 = vecRepeat 3
+vec4 = vecRepeat 4
+
 fragCoord = Val FragCoord
 
 coordX,coordY :: Wrap Rep Float => Expr Float
@@ -21,16 +39,10 @@ pointXY a b = Vec4 a b 1 1
 
 pointXYE :: Expr (VecN Float) -> Expr (VecN Float)
 pointXYE v = case v of 
-    Vec vec2 (Vec2 a b) -> Vec vec4 (Vec4 a b 1 1)
-    Val b -> Vec vec4 (Vec4 (Swiz b "x") (Swiz b "y") 1 1)
+    Vec (VecT FloaT N2) (Vec2 a b) -> Vec (VecT FloaT N4) (Vec4 a b (Float 1) (Float 1))
+    Val b -> Vec (VecT FloaT N4) (Vec4 (Val $ Swiz b "x") (Val $ Swiz b "y") (Float 1) (Float 1))
     other -> error $ show other
     
-gX, gY, gZ, gW :: Wrap Expr a => Expr (VecN a) -> Expr a
-gX (Vec r v) = wrap (vX v)
-gY (Vec r v) = wrap (vY v)
-gZ (Vec r v) = wrap (vZ v)
-gW (Vec r v) = wrap (vW v)
-
 -- Swizzle a named vector
 sX, sY, sZ, sW :: Wrap Rep v => Binding (VecN v) -> Expr v
 sX c = Val (Swiz c "x")

@@ -133,6 +133,9 @@ function f = do
 setColor :: Expr (VecN Float) -> Interpret ()
 setColor e = thenDo (Mutate FragColor e)
 
+setRed :: Expr Float -> Interpret ()
+setRed e = thenDo (Mutate (Swiz FragColor "x") e)
+
 procedure :: Stmt -> Interpret (Expr a)
 procedure = undefined
 
