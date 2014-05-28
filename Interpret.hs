@@ -1,4 +1,4 @@
-{-# Language FlexibleContexts, GADTs #-}
+{-# Language FlexibleContexts, GADTs, MultiParamTypeClasses #-}
 
 module Interpret where
 
@@ -11,6 +11,14 @@ import Vector
 import Control.Monad.State
 import Data.Maybe
 
+data Refl a b where
+    Refl :: Refl a a
+
+class REq a b where
+    (~~) :: a -> b -> Maybe (Refl a b)
+
+instance REq (Decl a) (Decl b)
+
 type Interpret = State Fragment
 data Fragment where Fragment :: Env -> Scope -> Region -> Fragment
 type Scope = Stmt
@@ -18,11 +26,28 @@ data Env where
     Empty :: Env
     Extend :: Decl a -> Env -> Env    
 
+lookUpDecl :: Decl a -> Env -> Maybe (Decl a)
+lookUpDecl d e = case e of
+    Empty -> Nothing
+    Extend d' e' -> case d ~~ d' of 
+                    Just Refl -> Just d'
+                    Nothing -> lookUpDecl d e'
+
+lookUpD :: Decl a -> Interpret (Maybe (Decl a))
+lookUpD d = do
+    Fragment e _ _ <- get
+    return $ lookUpDecl d e
+
 lookupName :: String -> Interpret (Maybe (Binding a))
 lookupName = undefined
 
-extend :: Decl a -> Interpret (Binding a)
-extend = undefined
+extend :: (Pretty a, Wrap Expr a, Wrap Rep a) => Decl a -> Interpret (Decl a)
+extend decl = do
+    alreadyDefined <- lookUpD decl
+    case alreadyDefined of
+        Nothing -> do
+            withState (\(Fragment e s r) -> Fragment (Extend decl e) s r) (return decl)
+        Just decl -> error $ "Redeclaration of " ++ show decl
 
 check :: Interpret Fragment
 check = undefined
@@ -39,19 +64,19 @@ getUniforms = undefined
 interpret :: Interpret Fragment -> Fragment
 interpret = undefined
 
-declval :: (Binding a -> Maybe (Expr a) -> Decl a) -> 
+declval :: (Wrap Rep a, Wrap Expr a, Pretty a) => (Binding a -> Maybe (Expr a) -> Decl a) -> 
            Binding a -> Maybe (Expr a) -> Interpret (Expr a)
 declval f (v @ (Var tp nm)) def = do
     alreadyDefined <- lookupName nm
     case alreadyDefined of
         Nothing -> extend (f v def)
-        Just b -> error $ "Redefining binding " ++ show b
+        Just b -> error $ "Redeclaration of " ++ show b
     return (Val v)
        
-uniform :: Binding a -> Maybe (Expr a) -> Interpret (Expr a)
+uniform :: (Wrap Expr a, Wrap Rep a, Pretty a) => Binding a -> Maybe (Expr a) -> Interpret (Expr a)
 uniform = declval Uniform
  
-value :: Wrap Rep a => Expr a -> Interpret (Expr a)
+value :: (Wrap Rep a, Wrap Expr a, Pretty a) => Expr a -> Interpret (Expr a)
 value e = do
     name <- newName
     declval (\b d -> Value b (fromJust d)) (Var (wrap $ extract e) name) (Just e)
