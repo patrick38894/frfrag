@@ -2,33 +2,32 @@ module Monad where
 import Language
 import Region
 import Vector
-import Control.Monad.Writer.Lazy
+import Control.Monad.State
 import Control.Monad.Reader
 import Data.Map (Map, empty, insertWith)
 import qualified Data.Map as M
 ------------------------------------------------------------------------------
-type Interpret = WriterT Fragment (Reader (Env, Int))
+type Interpret = ReaderT Fragment (State Int)
 
 type Env = Map (Int, String) Decl
 
-newtype Fragment = Fragment ([Decl], Stmt, Region)
-
-instance Monoid Fragment where
-    mempty = emptyFrag
-    mappend (Fragment (e, s, r))
-            (Fragment (e', s', r')) =
-                Fragment (e ++ e', s', r')
-
+newtype Fragment = Fragment (Env, Stmt, Region)
 
 emptyFrag :: Fragment
-emptyFrag = Fragment ([], NoOp, Anywhere)
+emptyFrag = Fragment (empty, NoOp, Anywhere)
 
 decl :: Bind -> Expr -> Decl
 decl = undefined
 
 ------------------------------------------------------------------------------
-env :: Fragment -> [Decl]
+env :: Fragment -> Env
 env (Fragment (e,_,_)) = e
+
+fmain :: Fragment -> Stmt
+fmain (Fragment (_,m,_)) = m
+
+rfmain :: Fragment -> Stmt
+rfmain (Fragment (_,m,r)) = shadeRegion m r
 
 binding :: Decl -> Bind
 binding d = case d of
