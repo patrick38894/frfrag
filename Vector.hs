@@ -13,6 +13,10 @@ data VecN a = Vec2 a a
 intN :: N -> Int
 intN n = case n of N2 -> 2; N3 -> 3; N4 -> 4
 
+fromInt :: Int -> N
+fromInt n = case n of 2 -> N2; 3 -> N3; 4 -> N4;
+                      otherwise -> error "Invalid vector size"
+
 vecToList :: VecN a -> [a]
 vecToList v = case v of
     Vec2 a b     -> [a,b]

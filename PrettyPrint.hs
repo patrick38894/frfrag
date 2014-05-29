@@ -1,6 +1,7 @@
 {-# Language FlexibleInstances, GADTs #-}
 module PrettyPrint where
-import Text.PrettyPrint.HughesPJ
+import Text.PrettyPrint.HughesPJ hiding (float, int)
+import qualified Text.PrettyPrint.HughesPJ as PP (float, int)
 import Language
 import Vector
 import Monad
@@ -67,8 +68,8 @@ twoArgs as = case as of
 
 ppExpr :: Expr -> Doc
 ppExpr e = case e of
-    Float x         -> float x
-    Int x           -> int x
+    Float x         -> PP.float x
+    Int x           -> PP.int x
     Bool x          -> text $ if x then "true" else "false"
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
@@ -98,7 +99,7 @@ ppDecl d = case d of
                         (case e of Nothing -> text ""
                                    Just x -> ppExpr x) <> semi
     Procedure b s   -> ppBinding b $+$ braceblock (ppStmt s)
-    --Function b e    -> ppBinding b $+$ braceblock (text "return" <+> ppExpr e <> semi)
+    Function b e    -> ppBinding b $+$ braceblock (text "return" <+> ppExpr e <> semi)
    
 ppStmt :: Stmt -> Doc
 ppStmt s = case s of
@@ -129,3 +130,4 @@ ppMain :: Stmt -> Region -> Doc
 ppMain m r = ppStmt $ shadeRegion m r
 
 instance Show Fragment where show = render . ppFrag
+instance Show (Interpret a) where show = show . interpret

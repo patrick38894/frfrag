@@ -39,7 +39,7 @@ data Expr = Float Float
 data Decl = Value Bind Expr
           | Uniform Bind (Maybe Expr)
           | Procedure Bind Stmt
-          | Function Bind [Expr]
+          | Function Bind Expr
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
 data Stmt = Loc Bind Expr
@@ -57,7 +57,18 @@ data Stmt = Loc Bind Expr
           | NoOp
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
-
+int = IntT
+float = FloatT
+bool = BoolT
+true = Bool True
+false = Bool False
+vec2t = VecT FloatT N2
+vec3t = VecT FloatT N3
+vec4t = VecT FloatT N4
 prim = App . Prim
 prim2 = App . Prim2
 binOp = App . BinOp
+vec :: [Float] -> Expr
+vec xs = Vec (VecT FloatT (fromInt (length xs))) (vecFromList (map Float xs)) 
+
+fragCoord = Val FragCoord
