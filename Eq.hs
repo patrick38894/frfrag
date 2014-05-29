@@ -46,9 +46,6 @@ instance RefEq Expr where
     Prim s ~~ Prim s' = do guard (s == s'); Just Refl
     Prim2 s ~~ Prim2 s' = do guard (s == s'); Just Refl
     BinOp s ~~ BinOp s' = do guard (s == s'); Just Refl
-    Sym r i ~~ Sym r' i' = do Refl <- r ~~ r'
-                              guard (i == i')
-                              Just Refl
     App r b ~~ App r' b' = do Refl <- r ~~ r'
                               Refl <- b ~~ b'
                               Just Refl
@@ -62,5 +59,4 @@ instance RefEq Decl where
 instance Eq (Rep a b) where a == b = a ~= b
 instance Eq (Binding a b) where a == b = a ~= b
 instance Eq (Expr a b) where a == b = a ~= b
-
 ------------------------------------------------------------------------------

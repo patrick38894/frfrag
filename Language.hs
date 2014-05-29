@@ -32,8 +32,9 @@ data Expr :: * -> * -> * where
     Prim :: String -> Expr r a
     Prim2 :: String -> Expr r (a, b)
     BinOp :: String -> Expr r (a, b)
-    Sym :: Rep r () -> Int -> Expr r ()
     App :: Expr r b -> Expr b () -> Expr r ()
+    Lam :: Int -> Rep b () -> Expr r () -> Expr r b
+    Sym :: Int -> Rep b () -> Expr b ()
 ------------------------------------------------------------------------------
 data Decl :: * -> * -> * where
     Value :: Binding t () -> Expr r () -> Decl t ()

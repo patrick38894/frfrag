@@ -6,6 +6,7 @@ import Region
 import Vector
 import Control.Monad.Reader
 
+------------------------------------------------------------------------------
 type Interpret = Reader Fragment
 
 data Fragment = Fragment {env :: Env,
