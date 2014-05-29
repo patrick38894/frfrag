@@ -31,7 +31,7 @@ data Expr = Float Float
           | Prim String
           | Prim2 String
           | BinOp String
-          | App Expr Expr
+          | App Expr [Expr]
           | Lam Int Rep Expr
           | Sym Int Rep
           deriving (Eq, Show)
@@ -58,3 +58,6 @@ data Stmt = Loc Bind Expr
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
 
+prim = App . Prim
+prim2 = App . Prim2
+binOp = App . BinOp

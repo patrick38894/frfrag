@@ -14,7 +14,7 @@ predicate r = case r of
     Predicate p -> p
 
 shadeRegion :: Stmt -> Region -> Stmt
-shadeRegion s r = If (App (predicate r) (Val FragCoord)) s Discard
+shadeRegion s r = If (App (predicate r) [Val FragCoord]) s Discard
 
 --xG10 :: Expr Bool (VecN Float)
 --xG10 = Rewrite (Sym (VecT FloatT N4) 0) (App (Prim "sin") (Sym (VecT FloatT N4) 0))
