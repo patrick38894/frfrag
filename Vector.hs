@@ -25,4 +25,8 @@ vecFromList xs = case xs of
    [a,b,c]   ->  Vec3 a b c      
    [a,b,c,d] ->  Vec4 a b c d    
 
+zipVec :: (a -> b -> c) -> VecN a -> VecN b -> VecN c
+zipVec op a b = vecFromList $ zipWith op (vecToList a) (vecToList b)
 
+mapVec :: (a -> b) -> VecN a -> VecN b
+mapVec op = vecFromList . map op . vecToList
