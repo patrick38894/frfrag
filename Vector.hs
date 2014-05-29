@@ -3,10 +3,12 @@ module Vector where
 data N = N2 
        | N3 
        | N4
+    deriving Eq
 
 data VecN a = Vec2 a a
             | Vec3 a a a
             | Vec4 a a a a
+    deriving Eq
 
 intN :: N -> Int
 intN n = case n of N2 -> 2; N3 -> 3; N4 -> 4

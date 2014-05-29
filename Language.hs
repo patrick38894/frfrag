@@ -1,9 +1,7 @@
 {-# Language
-        DeriveFunctor,
         FlexibleInstances,
         GADTs,
         KindSignatures,
-        StandaloneDeriving,
         TypeSynonymInstances #-}
 
 module Language where
@@ -28,7 +26,7 @@ data Expr :: * -> * -> * where
     Float :: Float -> Expr Float ()
     Bool :: Bool -> Expr Bool ()
     Int :: Int -> Expr Int ()
-    Vec :: Rep r () -> VecN (Expr r ()) -> Expr (VecN r) ()
+    Vec :: Eq r => Rep r () -> VecN (Expr r ()) -> Expr (VecN r) ()
     Val :: Binding r () -> Expr r ()
     Call :: Binding r a -> Expr r a
     Prim :: String -> Expr r a
@@ -37,8 +35,6 @@ data Expr :: * -> * -> * where
     Rewrite :: Eq b => Expr b () -> Expr r () -> Expr r b
     Sym :: Rep r () -> Int -> Expr r ()
     App :: Expr r b -> Expr b () -> Expr r ()
-
-instance Eq a => Eq (Expr a ()) 
 ------------------------------------------------------------------------------
 data Decl :: * -> * -> * where
     Value :: Binding t () -> Expr r () -> Decl t ()
@@ -51,7 +47,8 @@ data Stmt :: * -> * where
     Mut :: Binding r () -> Expr r () -> Stmt ()
     Seq :: Stmt r -> Stmt s -> Stmt (r,s)
     If :: Expr Bool () -> Stmt r -> Stmt s -> Stmt (Either r s)
-    For :: Binding Int () -> Expr Int () -> Expr Bool Int -> Expr Int Int -> Stmt r -> Stmt r
+    For :: Binding Int () -> Expr Int () -> Expr Bool Int -> Expr Int Int 
+        -> Stmt r -> Stmt r
     While :: Expr Bool () -> Stmt r -> Stmt r
     Break :: Stmt ()
     Cont :: Stmt ()
@@ -59,3 +56,4 @@ data Stmt :: * -> * where
     Halt :: Stmt ()
     Discard :: Stmt ()
 ------------------------------------------------------------------------------
+
