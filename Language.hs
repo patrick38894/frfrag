@@ -7,53 +7,52 @@
 module Language where
 import Vector
 ------------------------------------------------------------------------------
-data Rep :: * -> * -> * where
-    VoidT   :: Rep () () 
-    BoolT   :: Rep Bool () 
-    IntT    :: Rep Int () 
-    FloatT  :: Rep Float () 
-    VecT    :: Rep r () -> N -> Rep (VecN r) () 
-    FuncT   :: Rep b a -> Rep r b -> Rep r (a, b)
+data Rep = VoidT
+         | BoolT
+         | IntT
+         | FloatT
+         | VecT Rep N
+         | FuncT Rep Rep
+         deriving (Eq, Show)
 ------------------------------------------------------------------------------
-data Binding :: * -> * -> * where
-    Void :: Binding () ()
-    FragCoord :: Binding (VecN Float) ()
-    FragColor :: Binding (VecN Float) ()
-    Var :: Rep t () -> String -> Binding t ()
-    Func :: Binding b a -> Binding r b -> Binding r (a, b)
+data Bind = Void
+             | FragCoord
+             | FragColor
+             | Var Rep String
+             | Func Bind Bind
+             deriving (Eq, Show)
 ------------------------------------------------------------------------------
-data Expr :: * -> * -> * where
-    Float :: Float -> Expr Float ()
-    Bool :: Bool -> Expr Bool ()
-    Int :: Int -> Expr Int ()
-    Vec :: Eq r => Rep r () -> VecN (Expr r ()) -> Expr (VecN r) ()
-    Val :: Binding r () -> Expr r ()
-    Call :: Binding r a -> Expr r a
-    Prim :: String -> Expr r a
-    Prim2 :: String -> Expr r (a, b)
-    BinOp :: String -> Expr r (a, b)
-    App :: Expr r b -> Expr b () -> Expr r ()
-    Sym :: Int -> Rep b () -> Expr b ()
+data Expr = Float Float
+          | Bool Bool
+          | Int Int
+          | Vec Rep (VecN Expr)
+          | Val Bind
+          | Call Bind
+          | Prim String
+          | Prim2 String
+          | BinOp String
+          | App Expr Expr
+          | Sym Int Rep
+          deriving (Eq, Show)
 ------------------------------------------------------------------------------
-data Decl :: * -> * -> * where
-    Value :: Binding t () -> Expr r () -> Decl t ()
-    Uniform :: Binding t () -> Maybe (Expr t ()) -> Decl t ()
-    Procedure :: Binding r a -> Stmt r -> Decl r a
-    Function :: Binding r a -> Expr r a -> Decl r a
+data Decl = Value Bind Expr
+          | Uniform Bind (Maybe Expr)
+          | Procedure Bind Stmt
+          | Function Bind Expr
+          deriving (Eq, Show)
 ------------------------------------------------------------------------------
-data Stmt :: * -> * where
-    Loc :: Binding r () -> Expr r () -> Stmt ()
-    Mut :: Binding r () -> Expr r () -> Stmt ()
-    Seq :: Stmt r -> Stmt s -> Stmt (r,s)
-    If :: Expr Bool () -> Stmt r -> Stmt s -> Stmt (Either r s)
-    For :: Binding Int () -> Expr Int () -> Expr Bool Int -> Expr Int Int 
-        -> Stmt r -> Stmt r
-    While :: Expr Bool () -> Stmt r -> Stmt r
-    Break :: Stmt ()
-    Cont :: Stmt ()
-    Ret :: Expr r () -> Stmt r
-    Halt :: Stmt ()
-    Discard :: Stmt ()
-    NoOp :: Stmt ()
+data Stmt = Loc Bind Expr
+          | Mut Bind Expr
+          | Seq Stmt Stmt
+          | If Expr Stmt Stmt
+          | For Bind Expr Expr Expr Stmt
+          | While Expr Stmt
+          | Break
+          | Cont
+          | Ret Expr
+          | Halt
+          | Discard
+          | NoOp
+          deriving (Eq, Show)
 ------------------------------------------------------------------------------
 

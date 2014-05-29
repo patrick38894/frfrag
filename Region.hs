@@ -5,15 +5,15 @@ import Vector
 
 data Region where
     Anywhere :: Region
-    Predicate :: Expr Bool (VecN Float) -> Region
+    Predicate :: Expr -> Region
 
 
-predicate :: Region -> Expr Bool (VecN Float)
+predicate :: Region -> Expr
 predicate r = case r of
 --    Anywhere -> Rewrite (Sym (VecT FloatT N4) 0) (Bool True)
     Predicate p -> p
 
-shadeRegion :: Stmt () -> Region -> Stmt (Either () ())
+shadeRegion :: Stmt -> Region -> Stmt
 shadeRegion s r = If (App (predicate r) (Val FragCoord)) s Discard
 
 --xG10 :: Expr Bool (VecN Float)
