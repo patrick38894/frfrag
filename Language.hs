@@ -34,9 +34,11 @@ data Expr :: * -> * -> * where
     Prim :: String -> Expr r a
     Prim2 :: String -> Expr r (a, b)
     BinOp :: String -> Expr r (a, b)
-    Rewrite :: Expr b () -> Expr r () -> Expr r b
+    Rewrite :: Eq b => Expr b () -> Expr r () -> Expr r b
     Sym :: Rep r () -> Int -> Expr r ()
     App :: Expr r b -> Expr b () -> Expr r ()
+
+instance Eq a => Eq (Expr a ()) 
 ------------------------------------------------------------------------------
 data Decl :: * -> * -> * where
     Value :: Binding t () -> Expr r () -> Decl t ()
@@ -45,11 +47,12 @@ data Decl :: * -> * -> * where
     Function :: Binding r a -> Expr r a -> Decl r a
 ------------------------------------------------------------------------------
 data Stmt :: * -> * where
-    Loc :: Binding r () -> Expr r () -> Stmt r
+    Loc :: Binding r () -> Expr r () -> Stmt ()
+    Mut :: Binding r () -> Expr r () -> Stmt ()
     Seq :: Stmt r -> Stmt s -> Stmt (r,s)
     If :: Expr Bool () -> Stmt r -> Stmt s -> Stmt (Either r s)
-    For :: Binding Int () -> Expr Bool Int -> Expr Int Int -> Stmt r -> Stmt [r]
-    While :: Expr Bool () -> Stmt r -> Stmt [r]
+    For :: Binding Int () -> Expr Int () -> Expr Bool Int -> Expr Int Int -> Stmt r -> Stmt r
+    While :: Expr Bool () -> Stmt r -> Stmt r
     Break :: Stmt ()
     Cont :: Stmt ()
     Ret :: Expr r () -> Stmt r
