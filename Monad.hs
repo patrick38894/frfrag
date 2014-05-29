@@ -24,6 +24,20 @@ interpret prog = runReader (prog >> ask) emptyFrag
 emptyFrag :: Fragment
 emptyFrag = Fragment Empty 0 NoOp Anywhere
 
+typeE :: Expr a b -> Rep a b
+typeE = undefined
+
+rewrite :: Expr a () -> Int -> Rep b () -> Expr b () -> Either (Expr a ()) (Expr b ())
+rewrite e i r s =
+    case e of
+        Sym i' r' -> case (guard (i == i') >> r ~~ r') of
+            Just Refl -> Right s
+            Nothing -> Left (Sym i' r')
+        App f b -> case rewrite b i r s of 
+                    Left x -> Left (App f x)
+                    Right y -> case typeE y ~~ typeE b of Just Refl -> Right (App f y)
+        other -> Left other
+
 ------------------------------------------------------------------------------
 binding :: Decl r a -> Binding r a
 binding d = case d of
@@ -31,6 +45,14 @@ binding d = case d of
     Uniform     b _ -> b
     Procedure   b _ -> b
     Function    b _ -> b
+
+btype :: Binding r a -> Rep r a
+btype b = case b of
+    Void -> VoidT
+    FragCoord -> VecT FloatT N4
+    FragColor -> VecT FloatT N4
+    Var b s -> b
+    Func a r -> FuncT (btype a) (btype r)
 
 bname :: Binding r a -> String
 bname b = undefined

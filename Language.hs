@@ -20,7 +20,7 @@ data Binding :: * -> * -> * where
     FragCoord :: Binding (VecN Float) ()
     FragColor :: Binding (VecN Float) ()
     Var :: Rep t () -> String -> Binding t ()
-    Func :: Binding a () -> Binding r b -> Binding r (a, b)
+    Func :: Binding b a -> Binding r b -> Binding r (a, b)
 ------------------------------------------------------------------------------
 data Expr :: * -> * -> * where
     Float :: Float -> Expr Float ()
@@ -33,7 +33,6 @@ data Expr :: * -> * -> * where
     Prim2 :: String -> Expr r (a, b)
     BinOp :: String -> Expr r (a, b)
     App :: Expr r b -> Expr b () -> Expr r ()
-    Lam :: Int -> Rep b () -> Expr r () -> Expr r b
     Sym :: Int -> Rep b () -> Expr b ()
 ------------------------------------------------------------------------------
 data Decl :: * -> * -> * where
