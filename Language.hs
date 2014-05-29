@@ -12,15 +12,15 @@ data Rep = VoidT
          | IntT
          | FloatT
          | VecT Rep N
-         | FuncT Rep Rep
-         deriving (Eq, Show)
+         | FuncT Rep [Rep]
+         deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Bind = Void
              | FragCoord
              | FragColor
              | Var Rep String
-             | Func Bind Bind
-             deriving (Eq, Show)
+             | Func Bind [Bind]
+             deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Expr = Float Float
           | Bool Bool
@@ -39,13 +39,14 @@ data Expr = Float Float
 data Decl = Value Bind Expr
           | Uniform Bind (Maybe Expr)
           | Procedure Bind Stmt
-          | Function Bind Expr
+          | Function Bind [Expr]
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
 data Stmt = Loc Bind Expr
           | Mut Bind Expr
-          | Seq Stmt Stmt
+          | Seq [Stmt]
           | If Expr Stmt Stmt
+          | Case [(Int, Stmt)]
           | For Bind Expr Expr Expr Stmt
           | While Expr Stmt
           | Break

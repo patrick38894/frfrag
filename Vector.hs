@@ -3,7 +3,7 @@ module Vector where
 data N = N2 
        | N3 
        | N4
-       deriving (Eq, Show)
+       deriving (Eq, Ord, Show)
 
 data VecN a = Vec2 a a
             | Vec3 a a a

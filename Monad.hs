@@ -1,31 +1,35 @@
-{-# Language FlexibleInstances, GADTs, RankNTypes, TypeSynonymInstances #-}
 module Monad where
 import Language
 import Region
 import Vector
+import Control.Monad.Writer.Lazy
 import Control.Monad.Reader
-
+import Data.Map (Map, empty, insertWith)
+import qualified Data.Map as M
 ------------------------------------------------------------------------------
-type Interpret = Reader Fragment
+type Interpret = WriterT Fragment (Reader (Env, Int))
 
-data Fragment = Fragment {env :: Env,
-                          counter :: Int,
-                          fragMain :: Stmt,
-                          region :: Region}
+type Env = Map (Int, String) Decl
 
-data Env where
-    Empty :: Env
-    Extend :: Decl -> Env -> Env
+newtype Fragment = Fragment ([Decl], Stmt, Region)
 
-interpret :: Interpret a -> Fragment
-interpret prog = runReader (prog >> ask) emptyFrag
+instance Monoid Fragment where
+    mempty = emptyFrag
+    mappend (Fragment (e, s, r))
+            (Fragment (e', s', r')) =
+                Fragment (e ++ e', s', r')
+
 
 emptyFrag :: Fragment
-emptyFrag = Fragment Empty 0 NoOp Anywhere
+emptyFrag = Fragment ([], NoOp, Anywhere)
 
-typeE :: Expr -> Rep
-typeE = undefined
+decl :: Bind -> Expr -> Decl
+decl = undefined
+
 ------------------------------------------------------------------------------
+env :: Fragment -> [Decl]
+env (Fragment (e,_,_)) = e
+
 binding :: Decl -> Bind
 binding d = case d of
     Value       b _ -> b
@@ -33,36 +37,36 @@ binding d = case d of
     Procedure   b _ -> b
     Function    b _ -> b
 
-btype :: Bind -> Rep
-btype b = case b of
-    Void -> VoidT
-    FragCoord -> VecT FloatT N4
-    FragColor -> VecT FloatT N4
-    Var b s -> b
-    Func a r -> FuncT (btype a) (btype r)
-
-bname :: Bind -> String
-bname b = undefined
-
 name :: Decl -> String
 name = bname . binding
 
-lookUpDecl :: Decl -> Env -> Maybe Decl
-lookUpDecl d e = case e of
-    Empty -> Nothing
-    Extend d' e' -> if d == d' then Just d else lookUpDecl d e'
+bname :: Bind -> String
+bname b = case b of
+    Void -> error "Cannot actually bind to Void"
+    Var b s -> s
+    FragCoord -> "gl_FragCoord"
+    FragColor -> "gl_FragColor"
+    
+declval :: Bind -> Maybe Expr -> Interpret Expr
+declval b x = undefined
 
-lookUpBinding :: Bind -> Env -> Maybe Bind
-lookUpBinding b e = case e of
-    Empty -> Nothing
-    Extend d e' ->  let b' = binding d in
-        if b == b' then Just b else lookUpBinding b e'
+lookUpName :: String -> Env -> Maybe Bind
+lookUpName s e = 
+    let r = M.filterWithKey (\(_,k) _ -> k == s) e
+    in if M.null r 
+        then Nothing 
+        else case M.assocs r of
+                [(k,a)] -> Just (binding a)
+                xs -> error $ "Multiple conflicting definitions " ++ (unlines $ map show xs)
 
-lookUpName :: String -> Env -> Bool
-lookUpName s e = case e of
-    Empty -> False
-    Extend d e' -> let s' = name d in 
-        s == s' && lookUpName s e'
 ------------------------------------------------------------------------------
+value :: Bind -> Expr -> Interpret Expr
+uniform :: Bind -> (Maybe Expr) -> Interpret Expr
+function :: Bind -> [Expr] -> Interpret Expr
+procedure :: Bind -> Stmt -> Interpret Expr
 
+value = undefined
+uniform = undefined
+function = undefined
+procedure = undefined
 

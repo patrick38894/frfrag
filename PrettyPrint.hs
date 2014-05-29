@@ -5,6 +5,7 @@ import Vector
 import Monad
 import Region
 import Control.Monad.Reader
+import Data.Map (toAscList)
 
 commasep :: [Doc] -> Doc
 commasep = sep . punctuate comma 
@@ -122,9 +123,7 @@ ppFrag :: Fragment -> Doc
 ppFrag (Fragment e _ m r) = ppEnv e $+$ ppMain m r
 
 ppEnv :: Env -> Doc
-ppEnv e = case e of
-    Empty -> empty
-    Extend d e' -> ppDecl d $+$ ppEnv e'
+ppEnv = vcat . map (ppDecl . snd) . toAscList
 
 ppMain :: Stmt -> Region -> Doc
 ppMain m r = ppStmt $ shadeRegion m r
