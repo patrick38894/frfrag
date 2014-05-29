@@ -66,12 +66,20 @@ ppExpr e = case e of
     Bool x          -> text $ if x then "true" else "false"
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
-    App f a         -> ppApply f [ppExpr a]
+    App f a         -> case f of
+                        Lam i r e -> ppExpr $ rewrite i r e a
+                        other -> ppApply f [ppExpr a]
     Call f          -> error $ "Cannot print partially applied function " ++ show f
     Prim s          -> error $ "Cannot print unary " ++ s ++ " without arguments"
     Prim2 s         -> error $ "Cannot print binary " ++ s ++ " without arguments"
     BinOp s         -> error $ "Cannot print operator " ++ s ++ " without arguments"
-    Sym r i         -> error $ "Cannot print symbol " ++ show r ++ show r
+    Sym i r         -> error $ "Cannot print symbol " ++ show r ++ show r
+
+rewrite :: Int -> Rep -> Expr -> Expr -> Expr
+rewrite i r e a = case e of
+    Sym i' r' -> if i == i' && r == r' then a else Sym i' r'
+    App f a' -> App (rewrite i r e f) (rewrite i r e a')
+    other -> other
 
 ppApply :: Expr -> [Doc] -> Doc
 ppApply f as = case f of

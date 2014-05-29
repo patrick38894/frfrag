@@ -25,9 +25,6 @@ emptyFrag = Fragment Empty 0 NoOp Anywhere
 
 typeE :: Expr -> Rep
 typeE = undefined
-
-rewrite :: Expr -> Int -> Rep -> Expr -> Expr
-rewrite e i r s = undefined
 ------------------------------------------------------------------------------
 binding :: Decl -> Bind
 binding d = case d of

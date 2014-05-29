@@ -32,6 +32,7 @@ data Expr = Float Float
           | Prim2 String
           | BinOp String
           | App Expr Expr
+          | Lam Int Rep Expr
           | Sym Int Rep
           deriving (Eq, Show)
 ------------------------------------------------------------------------------

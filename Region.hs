@@ -10,7 +10,7 @@ data Region where
 
 predicate :: Region -> Expr
 predicate r = case r of
---    Anywhere -> Rewrite (Sym (VecT FloatT N4) 0) (Bool True)
+    Anywhere -> Lam 0 (VecT FloatT N4) (Bool True)
     Predicate p -> p
 
 shadeRegion :: Stmt -> Region -> Stmt
