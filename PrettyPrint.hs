@@ -67,28 +67,24 @@ ppExpr e = case e of
     Bool x          -> text $ if x then "true" else "false"
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
-    App f a         -> ppRewrite f a
+    App f a         -> ppApply f [ppExpr a]
     Call f          -> error $ "Cannot print partially applied function " ++ show f
     Prim s          -> error $ "Cannot print unary " ++ s ++ " without arguments"
     Prim2 s         -> error $ "Cannot print binary " ++ s ++ " without arguments"
     BinOp s         -> error $ "Cannot print operator " ++ s ++ " without arguments"
-    Rewrite b r     -> error $ "Cannot print rewrite " ++ show b ++ " -> " ++ show r
     Sym r i         -> error $ "Cannot print symbol " ++ show r ++ show r
 
+ppRewrite :: Expr r b -> Expr b () -> Doc
+ppRewrite (Lam i b r) s = case s of
+    Sym i' b' -> if i == i'
+                    then case b ~~ b' of
+                        Just Refl -> ppExpr r
+                        Nothing -> error $ "Multiple lambdas at index " ++ show i
+                    else error $ "Encountered unbound lambda " ++ show s
+    App f a -> ppApply f [ppRewrite (Lam i b r) a]
+    other -> ppExpr other
 
-ppRewrite :: Expr r a -> Expr a () -> Doc
-ppRewrite f a = case f of
-    Rewrite b r     -> ppReplace b a r
-    other           -> ppApply f [ppExpr a]
 
-ppReplace :: Expr a () -> Expr a () -> Expr r () -> Doc
-ppReplace b a r = case b ~~ r of
-    Just Refl -> ppExpr a
-    Nothing -> case r of
-        Vec r x -> undefined
-        Rewrite b' r' -> undefined
-        App f b' -> undefined
-        other -> ppExpr other
 
 ppApply :: Expr r a -> [Doc] -> Doc
 ppApply f as = case f of
@@ -97,7 +93,6 @@ ppApply f as = case f of
     Prim s          -> text s <> parens (commasep as)
     Prim2 s         -> text s <> parens (commasep as)
     BinOp s         -> case as of [y,x] -> parens (x <+> text s <+> y)
-    Rewrite b r     -> error "Rewrite term still present in AST"
 
 ppDecl :: Decl r a -> Doc
 ppDecl d = case d of
