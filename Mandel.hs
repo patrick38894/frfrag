@@ -26,4 +26,4 @@ mandelbrot =   do
 --    brot    <- function  calcMandelbrot
 --    colors  <- function $ colormap 1 2
 --    fragColor $ colors \$ brot \$ (scale \. offset \$ fragCoord) iter step
-    fragColor $ fragCoord / screen  
+    fragColor $ sin(fragCoord) / cos fragCoord

@@ -114,11 +114,23 @@ asProcedure :: Fragment -> Interpret Stmt
 -- Set aside the "main" as a separate function
 asProcedure = undefined
 
+fuse :: (Stmt -> Stmt -> Stmt) -> Stmt -> Interpret ()
+fuse f s = do
+    (Fragment (e,m,r), counter) <- get
+    let m' = f m s
+        frag' = Fragment (e,m',r)
+    put (frag', counter)
+
+fuseblock :: Stmt -> Stmt -> Stmt
+fuseblock a b = case b of
+    Seq xs -> Seq (a:xs)
+    other -> Seq [a, b]
+
 firstDo :: Stmt -> Interpret ()
-firstDo = undefined
+firstDo = fuse fuseblock
 
 thenDo :: Stmt -> Interpret ()
-thenDo = undefined
+thenDo = fuse (flip fuseblock)
 
 fragColor :: Expr -> Interpret ()
 fragColor x = do

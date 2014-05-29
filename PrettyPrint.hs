@@ -26,7 +26,7 @@ ppRep r = case r of
     BoolT       -> text "bool"
     IntT        -> text "int"
     FloatT      -> text "float"
-    VecT r n    -> text (getInitial r) <> text "vec" <+> ppN n
+    VecT r n    -> text (getInitial r) <> text "vec" <> ppN n
     FuncT r a   -> error "First class function type not implemented"
 
 getInitial :: Rep -> String
@@ -96,8 +96,8 @@ ppDecl :: Decl -> Doc
 ppDecl d = case d of
     Value b e       -> text "const" <+> ppBinding b <+> equals <+> ppExpr e
     Uniform b e     -> text "uniform" <+> ppBinding b <>
-                        (case e of Nothing -> text ""
-                                   Just x -> ppExpr x) <> semi
+                        (case e of Nothing -> empty
+                                   Just x -> text "" <+> equals <+> ppExpr x) <> semi
     Procedure b s   -> ppBinding b $+$ braceblock (ppStmt s)
     Function b e    -> ppBinding b $+$ braceblock (text "return" <+> ppExpr e <> semi)
    

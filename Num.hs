@@ -23,6 +23,7 @@ instance Num Expr where
 
 instance Fractional Expr where
     fromRational r = Float (fromRational r)
+    x / y = binOp "/" [x,y]
 
 instance Floating Expr where
     pi = Float pi
