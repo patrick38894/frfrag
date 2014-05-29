@@ -1,20 +1,6 @@
-{-# Language GADTs, KindSignatures #-}
+{-# Language FlexibleInstances, GADTs, KindSignatures, TypeSynonymInstances #-}
 module Language where
-------------------------------------------------------------------------------
-data N = N2 | N3 | N4
-data VecN :: (* -> *) where
-    Vec2 :: a -> a -> VecN a
-    Vec3 :: a -> a -> a -> VecN a
-    Vec4 :: a -> a -> a -> a -> VecN a
-intN :: N -> Int
-intN n = case n of N2 -> 2; N3 -> 3; N4 -> 4
-
-vecToList :: VecN a -> [a]
-vecToList v = case v of
-    Vec2 a b -> [a,b]
-    Vec3 a b c -> [a,b,c]
-    Vec4 a b c d -> [a,b,c,d]
-
+import Vector
 ------------------------------------------------------------------------------
 data Rep :: * -> * -> * where
     VoidT :: Rep () ()
@@ -23,7 +9,6 @@ data Rep :: * -> * -> * where
     FloatT :: Rep () Float
     VecT :: Rep () a -> N -> Rep () (VecN a)
     FuncT :: Rep () a -> Rep a' r -> Rep a (Rep a' r)
-
 ------------------------------------------------------------------------------
 data Binding :: * -> * -> * where
     Void :: Binding () ()
@@ -31,7 +16,6 @@ data Binding :: * -> * -> * where
     FragColor :: Binding () (VecN Float)
     Var :: Rep () t -> String -> Binding () t
     Func :: Binding () a -> Binding a' r -> Binding a r
-
 ------------------------------------------------------------------------------
 data Expr :: * -> * -> * where
     Float :: Float -> Expr () Float
@@ -46,6 +30,22 @@ data Expr :: * -> * -> * where
     Rewrite :: Expr a a' -> Expr a' r' -> Expr a r'
     Sym :: Rep a r -> Int -> Expr a r
     App :: Expr a' r -> Expr a a' -> Expr a r
-
 ------------------------------------------------------------------------------
-
+data Decl :: * -> * -> * where
+    Value :: Binding () t -> Expr () t -> Decl () t
+    Uniform :: Binding () t -> Maybe (Expr () t) -> Decl () t
+    Procedure :: Binding a r -> Stmt r -> Decl a r
+    Function :: Binding a r -> Expr a r -> Decl a r
+------------------------------------------------------------------------------
+data Stmt :: * -> * where
+    Loc :: Binding () r -> Expr () r -> Stmt ()
+    Seq :: Stmt r -> Stmt s -> Stmt (r,s)
+    If :: Expr () Bool -> Stmt r -> Stmt s -> Stmt (Either r s)
+    For :: Binding () Int -> Expr Int Bool -> Expr Int Int -> Stmt r -> Stmt [r]
+    While :: Expr () Bool -> Stmt r -> Stmt [r]
+    Break :: Stmt ()
+    Cont :: Stmt ()
+    Ret :: Expr () r -> Stmt r
+    Halt :: Stmt ()
+    Discard :: Stmt ()
+------------------------------------------------------------------------------
