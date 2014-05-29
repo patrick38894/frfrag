@@ -1,7 +1,11 @@
 {-# Language FlexibleInstances, GADTs #-}
 import Text.PrettyPrint.HughesPJ
+import Eq
 import Language
 import Vector
+import Monad
+import Region
+import Control.Monad.Reader
 
 commasep :: [Doc] -> Doc
 commasep = sep . punctuate comma 
@@ -64,12 +68,27 @@ ppExpr e = case e of
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
     App f a         -> ppRewrite f a
-    other           -> error "Invalid expression"
+    Call f          -> error $ "Cannot print partially applied function " ++ show f
+    Prim s          -> error $ "Cannot print unary " ++ s ++ " without arguments"
+    Prim2 s         -> error $ "Cannot print binary " ++ s ++ " without arguments"
+    BinOp s         -> error $ "Cannot print operator " ++ s ++ " without arguments"
+    Rewrite b r     -> error $ "Cannot print rewrite " ++ show b ++ " -> " ++ show r
+    Sym r i         -> error $ "Cannot print symbol " ++ show r ++ show r
+
 
 ppRewrite :: Expr r a -> Expr a () -> Doc
 ppRewrite f a = case f of
-    Rewrite b r     -> if a == b then ppExpr r else ppExpr a 
+    Rewrite b r     -> ppReplace b a r
     other           -> ppApply f [ppExpr a]
+
+ppReplace :: Expr a () -> Expr a () -> Expr r () -> Doc
+ppReplace b a r = case b ~~ r of
+    Just Refl -> ppExpr a
+    Nothing -> case r of
+        Vec r x -> undefined
+        Rewrite b' r' -> undefined
+        App f b' -> undefined
+        other -> ppExpr other
 
 ppApply :: Expr r a -> [Doc] -> Doc
 ppApply f as = case f of
@@ -107,3 +126,21 @@ ppStmt s = case s of
     Ret e           -> text "return" <+> ppExpr e <> semi
     Halt            -> text "return" <> semi
     Discard         -> text "discard" <> semi
+    NoOp            -> empty
+
+ppFrag :: Fragment -> Doc
+ppFrag (Fragment e _ m r) = ppEnv e $+$ ppMain m r
+
+ppEnv :: Env -> Doc
+ppEnv e = case e of
+    Empty -> empty
+    Extend d e' -> ppDecl d $+$ ppEnv e'
+
+ppMain :: Stmt () -> Region -> Doc
+ppMain m r = ppStmt $ shadeRegion m r
+
+instance Show (Rep r a) where show = render . ppRep
+instance Show (Binding r a) where show = render . ppBinding
+instance Show (Expr r a) where show = render . ppExpr
+instance Show Fragment where show = render . ppFrag
+instance Show (Interpret a) where show = show . interpret

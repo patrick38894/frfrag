@@ -32,7 +32,6 @@ data Expr :: * -> * -> * where
     Prim :: String -> Expr r a
     Prim2 :: String -> Expr r (a, b)
     BinOp :: String -> Expr r (a, b)
-    Rewrite :: Eq b => Expr b () -> Expr r () -> Expr r b
     Sym :: Rep r () -> Int -> Expr r ()
     App :: Expr r b -> Expr b () -> Expr r ()
 ------------------------------------------------------------------------------
@@ -55,5 +54,6 @@ data Stmt :: * -> * where
     Ret :: Expr r () -> Stmt r
     Halt :: Stmt ()
     Discard :: Stmt ()
+    NoOp :: Stmt ()
 ------------------------------------------------------------------------------
 
