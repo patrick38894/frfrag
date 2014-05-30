@@ -47,6 +47,7 @@ bname b = case b of
     Var b s -> s
     FragCoord -> "gl_FragCoord"
     FragColor -> "gl_FragColor"
+    Func b as -> bname b
  
 
 check :: Bind -> Interpret Expr
@@ -108,6 +109,30 @@ procedure b as s = do
     (_, counter) <- get
     let name = "proc" ++ show counter
     declval procF (Func (Var b name) (genArgs as)) $ Just s
+
+symbol :: Rep -> Interpret Expr
+symbol r = do
+    (frag,counter) <- get
+    put (frag, counter + 1)
+    return (Sym counter r)
+
+lambda :: Expr -> Expr -> (Expr -> Expr)
+lambda (Sym i r) e = rewrite i r e
+
+rewrite :: Int -> Rep -> Expr -> Expr -> Expr
+rewrite i r e a = case e of
+    Sym i' r' -> if i == i' && r == r' then a else Sym i' r'
+    App f a' -> App (rewrite i r e f) (map (rewrite i r e) a')
+    other -> e
+
+infixl 1 \$
+(\$) :: Expr -> [Expr] -> Expr
+(\$) = App
+
+(\.) :: Expr -> Expr -> Interpret Expr
+f \. g = do
+    s @ (Sym n PolyT) <- symbol PolyT
+    return (Lam n PolyT (App f [App g [s]]))
 ------------------------------------------------------------------------------
 asProcedure :: Fragment -> Interpret Stmt
 -- Add necessary uniforms

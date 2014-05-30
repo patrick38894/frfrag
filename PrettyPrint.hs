@@ -80,17 +80,13 @@ ppExpr e = case e of
                         Prim2 s -> text s <> parens (commasep $ map ppExpr (twoArgs as))
                         BinOp s -> let [x,y] = twoArgs as in parens $
                             ppExpr x <+> text s <+> ppExpr y
-    Call f          -> error $ "Cannot print partially applied function " ++ show f
+                        App f' as' -> error $ "Applying " ++ show f'
+                        other -> error $ "Cannot apply value as function" ++ show other
+    Call f          -> error $ "Cannot print partially applied function " 
     Prim s          -> error $ "Cannot print unary " ++ s ++ " without arguments"
     Prim2 s         -> error $ "Cannot print binary " ++ s ++ " without arguments"
     BinOp s         -> error $ "Cannot print operator " ++ s ++ " without arguments"
     Sym i r         -> error $ "Cannot print symbol " ++ show r ++ show r
-
-rewrite :: Int -> Rep -> Expr -> Expr -> Expr
-rewrite i r e a = case e of
-    Sym i' r' -> if i == i' && r == r' then a else Sym i' r'
-    App f a' -> App (rewrite i r e f) (map (rewrite i r e) a')
-    other -> e
 
 ppDecl :: Decl -> Doc
 ppDecl d = case d of
