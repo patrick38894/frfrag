@@ -7,16 +7,20 @@ import Control.Monad.Reader
 import Data.Map (Map, empty, insertWith)
 import qualified Data.Map as M
 ------------------------------------------------------------------------------
-type Interpret = State (Fragment, Int)
+type Interpret = State (Env, Int)
 type Env = Map (Int, String) Decl
 
 newtype Fragment = Fragment (Env, Stmt, Region)
+
+newtype FuncBody = FuncBody (Env, Stmt)
+type BuildFunc = State (FuncBody)
 
 emptyFrag :: Fragment
 emptyFrag = Fragment (empty, NoOp, Anywhere)
 
 interpret :: Interpret a -> Fragment
 interpret p = fst $ execState p (emptyFrag, 1)
+
 
 ------------------------------------------------------------------------------
 env :: Fragment -> Env
@@ -89,12 +93,11 @@ procF b s = case s of
     Just s -> Procedure b s
     Nothing -> error $ "Procedure " ++ show b ++ " uninitialized"
 
-genArgs as = zipWith Var as (map (("arg"++) . show) [1..])
 ------------------------------------------------------------------------------
 uniform :: String -> Rep -> (Maybe Expr) -> Interpret Expr
 value :: Rep -> Expr -> Interpret Expr
-function :: Rep -> [Rep] -> Expr -> Interpret Expr
-procedure :: Rep -> [Rep] -> Stmt -> Interpret Expr
+function :: Rep -> BuildFunction -> Interpret Expr
+procedure :: Rep -> BuildFunction -> Stmt -> Interpret Expr
 
 uniform s r = declval Uniform (Var r s)
 value b e = do
@@ -104,35 +107,12 @@ value b e = do
 function b as e = do
     (_, counter) <- get
     let name = "func" ++ show counter
-    declval funcF (Func (Var b name) (genArgs as)) $ Just e
+    declval funcF (Func (Var b name) as) $ Just e
 procedure b as s = do
     (_, counter) <- get
     let name = "proc" ++ show counter
-    declval procF (Func (Var b name) (genArgs as)) $ Just s
+    declval procF (Func (Var b name) as) $ Just s
 
-symbol :: Rep -> Interpret Expr
-symbol r = do
-    (frag,counter) <- get
-    put (frag, counter + 1)
-    return (Sym counter r)
-
-lambda :: Expr -> Expr -> (Expr -> Expr)
-lambda (Sym i r) e = rewrite i r e
-
-rewrite :: Int -> Rep -> Expr -> Expr -> Expr
-rewrite i r e a = case e of
-    Sym i' r' -> if i == i' && r == r' then a else Sym i' r'
-    App f a' -> App (rewrite i r e f) (map (rewrite i r e) a')
-    other -> e
-
-infixl 1 \$
-(\$) :: Expr -> [Expr] -> Expr
-(\$) = App
-
-(\.) :: Expr -> Expr -> Interpret Expr
-f \. g = do
-    s @ (Sym n PolyT) <- symbol PolyT
-    return (Lam n PolyT (App f [App g [s]]))
 ------------------------------------------------------------------------------
 asProcedure :: Fragment -> Interpret Stmt
 -- Add necessary uniforms

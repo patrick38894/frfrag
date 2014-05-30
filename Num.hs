@@ -15,28 +15,28 @@ instance Fractional a => Fractional (VecN a) where
 instance Floating a => Floating (VecN a)
 
 instance Num Expr where
-    x + y = binOp "+" [x,y]
-    x * y = binOp "*" [x,y]
-    abs x = prim "abs" [x]
-    signum x = prim "sign" [x]
-    fromInteger i = Int (fromInteger i) 
+    (+) = BinOp "+" 
+    (*) = BinOp "*" 
+    abs = Prim "abs"
+    signum = Prim "sign"
+    fromInteger = Int . fromInteger 
 
 instance Fractional Expr where
-    fromRational r = Float (fromRational r)
-    x / y = binOp "/" [x,y]
+    fromRational = Float . fromRational
+    (/) = BinOp "/"
 
 instance Floating Expr where
     pi = Float pi
-    sin x = prim "sin" [x]
-    cos x = prim "cos" [x]
-    tan x = prim "tan" [x]
-    exp x = prim "exp" [x]
-    log x = prim "log" [x]
-    asin x = prim "asin" [x]
-    acos x = prim "acos" [x]
-    atan x = prim "atan" [x]
-    sinh x = prim "sinh" [x]
-    cosh x = prim "cosh" [x]
-    asinh x = prim "asinh" [x]
-    acosh x = prim "acosh" [x]
-    atanh x = prim "atanh" [x]
+    sin = Prim "sin" 
+    cos = Prim "cos" 
+    tan = Prim "tan" 
+    exp = Prim "exp" 
+    log = Prim "log" 
+    asin = Prim "asin" 
+    acos = Prim "acos" 
+    atan = Prim "atan" 
+    sinh = Prim "sinh" 
+    cosh = Prim "cosh" 
+    asinh = Prim "asinh" 
+    acosh = Prim "acosh" 
+    atanh = Prim "atanh" 

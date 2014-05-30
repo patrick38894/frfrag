@@ -56,16 +56,6 @@ ppCheckArg f a = case a of
     FragCoord       -> error "Cannot give 'gl_FragCoord' as function argument"
     FragColor       -> error "Cannot give 'gl_FragColor' as function argument"
 
-oneArg :: [Expr] -> Expr
-oneArg as = case as of 
-    [x] -> x
-    xs -> error $ "Expected one argument to function"
-
-twoArgs :: [Expr] -> [Expr]
-twoArgs as = case as of
-    [x,y] -> [x,y]
-    xs -> error $ "Expected two arguments to function"
-
 ppExpr :: Expr -> Doc
 ppExpr e = case e of
     Float x         -> PP.float x
@@ -73,20 +63,10 @@ ppExpr e = case e of
     Bool x          -> text $ if x then "true" else "false"
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
-    App f as         -> case f of
-                        Lam i r e -> ppExpr $ rewrite i r e (oneArg as)
-                        Call b -> ppName b <> parens (commasep $ map ppExpr as)
-                        Prim s -> text s <> parens (ppExpr (oneArg as))
-                        Prim2 s -> text s <> parens (commasep $ map ppExpr (twoArgs as))
-                        BinOp s -> let [x,y] = twoArgs as in parens $
-                            ppExpr x <+> text s <+> ppExpr y
-                        App f' as' -> error $ "Applying " ++ show f'
-                        other -> error $ "Cannot apply value as function" ++ show other
-    Call f          -> error $ "Cannot print partially applied function " 
-    Prim s          -> error $ "Cannot print unary " ++ s ++ " without arguments"
-    Prim2 s         -> error $ "Cannot print binary " ++ s ++ " without arguments"
-    BinOp s         -> error $ "Cannot print operator " ++ s ++ " without arguments"
-    Sym i r         -> error $ "Cannot print symbol " ++ show r ++ show r
+    Call b as       -> ppName b <> parens (commasep $ map ppExpr as)
+    Prim s a        -> text s <> parens (ppExpr a)
+    Prim2 s a b     -> text s <> parens (commasep $ map ppExpr [a,b])
+    BinOp s a b     -> parens $ ppExpr a <+> text s <+> ppExpr b
 
 ppDecl :: Decl -> Doc
 ppDecl d = case d of
@@ -107,7 +87,7 @@ ppStmt s = case s of
                         $+$ text "else" <+> braceblock (ppStmt e)
     For v i p a s   -> text "for" <> parens (ppStmt (Loc v i) <> semi
                                           <+> ppExpr p <> semi
-                                          <+> ppStmt (Mut v (App a [(Val v)])))
+                                          <+> ppStmt (Mut v a))
                                <+> braceblock (ppStmt s)
     While p s       -> text "while" <> parens (ppExpr p) <+> braceblock (ppStmt s)
     Break           -> text "break" <> semi
