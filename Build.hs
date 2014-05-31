@@ -3,10 +3,6 @@ import Data.Map
 import Region
 import Language
 
-data Frag       = Frag { fenv :: Env (),
-                         fmain :: BuildF (),
-                         fregion :: Region }
-
 ------------------------------------------------------------------------------
 -- Utility
 declname        :: Decl -> String
@@ -75,5 +71,11 @@ mkCall = undefined
 
 ------------------------------------------------------------------------------
 -- Fragments
+data Frag       = Frag { fenv :: Env (),
+                         fmain :: BuildF (),
+                         fregion :: Region }
 
+
+mkFrag :: Frag -> ([Bind], [Decl], Stmt)
+mkFrag = undefined
 

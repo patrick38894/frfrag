@@ -27,7 +27,6 @@ ppRep r = case r of
     IntT        -> text "int"
     FloatT      -> text "float"
     VecT r n    -> text (getInitial r) <> text "vec" <> ppN n
-    FuncT r a   -> error "First class function type not implemented"
 
 getInitial :: Rep -> String
 getInitial r = case r of

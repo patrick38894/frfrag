@@ -12,15 +12,15 @@ data Rep = VoidT
          | IntT
          | FloatT
          | VecT Rep N
-         | FuncT Rep [Rep]
+         | PolyT
          deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Bind = Void
-           | FragCoord
-           | FragColor
-           | Var Rep String
-           | Func Bind [Bind]
-           deriving (Eq, Ord, Show)
+          | FragCoord
+          | FragColor
+          | Var Rep String
+          | Func Bind [Bind]
+          deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Expr = Float Float
           | Bool Bool
