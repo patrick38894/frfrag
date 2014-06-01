@@ -4,7 +4,9 @@ import Text.PrettyPrint.HughesPJ hiding (float, int)
 import qualified Text.PrettyPrint.HughesPJ as PP (float, int)
 import Language
 import Vector
-import Build
+import Env
+import Procedure
+import Fragment
 import Region
 import Data.Map (toAscList)
 import Control.Monad.State
