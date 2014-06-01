@@ -12,7 +12,6 @@ data Rep = VoidT
          | IntT
          | FloatT
          | VecT Rep N
-         | PolyT
          deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Bind = Void
@@ -20,6 +19,7 @@ data Bind = Void
           | FragColor
           | Var Rep String
           | Func Bind [Bind]
+          | Swiz Bind String 
           deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Expr = Float Float

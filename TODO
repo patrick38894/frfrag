@@ -1,0 +1,37 @@
+-- TODO
+-- 1) Get interpreter working for uniforms, variables, basic main
+-- 2) Add swizzling.
+-- 3) Fix pretty printer and write tests:
+--      Empty shader
+--      Red shader
+--      Position gradient shader
+--      Basic math expression shaders
+-- 4) Add procedure-building stuff
+-- 5) Tests
+--      Colormap from float to colors, map over x y position
+--      Mandelbrot
+--      Newton fractal
+-- 6) Add shapes and regions
+--      Tests (outline and fill):
+            Circle
+            Square
+            Triangle
+            Regular polygon
+            Area under a curve
+            Intersection of circle and square            
+
+-- 7) Add GLFW test setup
+-- 8) Add Pipes control of uniforms
+-- 9) Add FRP primitives (Abstract uniforms into FRP vars)
+-- 10) More tests
+        Light following mouse
+        Fractal explorer
+        Hyperbolic pong
+        Water/rain/ripples
+        Fire
+        Starfield
+-- 11) Add Stream functions for more abstract loops
+-- 12) Add Structs. Add GHC-Generic based struct coupling.
+-- 13) Add optimization - constant folding.
+-- 14) Clean up repo and refactor.
+-- 15) Add well-typed semantics
