@@ -1,77 +1,70 @@
 {-# Language
+        DataKinds,
         FlexibleInstances,
+        GADTs,
+        KindSignatures,
+        MultiParamTypeClasses,
+        PolyKinds,
+        StandaloneDeriving,
         TypeSynonymInstances #-}
 
 module Language where
-import Vector
 ------------------------------------------------------------------------------
-data Rep = VoidT
-         | BoolT
-         | IntT
-         | FloatT
-         | VecT Rep N
-         | PolyT
-         deriving (Eq, Ord, Show)
-------------------------------------------------------------------------------
-data Bind = Void
-          | FragCoord
-          | FragColor
-          | Var Rep String
-          | Func Bind [Bind]
-          | Swiz Bind String 
-          deriving (Eq, Ord, Show)
-------------------------------------------------------------------------------
-data Expr = Float Float
-          | Bool Bool
-          | Int Int
-          | Vec Rep (VecN Expr)
-          | Val Bind
-          | Call Bind [Expr]
-          | Prim Rep Rep String Expr
-          | Prim2 Rep Rep Rep String Expr Expr
-          | BinOp Rep Rep Rep String Expr Expr
-          deriving (Eq, Show)
-------------------------------------------------------------------------------
-data Decl = Value Bind Expr
-          | Uniform Bind (Maybe Expr)
-          | Procedure Bind Stmt
-          deriving (Eq, Show)
-------------------------------------------------------------------------------
-data Stmt = Loc Bind Expr
-          | Mut Bind Expr
-          | Seq [Stmt]
-          | If Expr Stmt Stmt
-          | Case [(Int, Stmt)]
-          | For Bind Expr Expr Expr Stmt
-          | While Expr Stmt
-          | Break
-          | Cont
-          | Ret Expr
-          | Halt
-          | Discard
-          | NoOp
-          deriving (Eq, Show)
-------------------------------------------------------------------------------
-void = VoidT
-int = IntT
-intp = Var int
-float = FloatT
-floatp = Var float
-bool = BoolT
-boolp = Var bool
-true = Bool True
-false = Bool False
-vec2t = VecT FloatT N2
-vec2p = Var vec2t
-vec2e = Val . vec2p
-vec3t = VecT FloatT N3
-vec3p = Var vec3t
-vec3e = Val . vec3p
-vec4t = VecT FloatT N4
-vec4p = Var vec4t
-vec4e = Val . vec4p
-vec :: [Float] -> Expr
-vec xs = Vec (VecT FloatT (fromInt (length xs))) (vecFromList (map Float xs)) 
+data V2 a = Vec2 a a
+data V3 a = Vec3 a a a
+data V4 a = Vec4 a a a a
 
-fragColor = Val FragColor
-fragCoord = Val FragCoord
+class Vec v where dim :: v a -> Int
+class Vec2p v
+class Vec3p v
+class Vec4p v
+
+instance Vec V2 where dim = const 2
+instance Vec V3 where dim = const 3
+instance Vec V4 where dim = const 4
+
+instance Vec2p V2
+instance Vec2p V3
+instance Vec2p V4
+instance Vec3p V3
+instance Vec3p V4
+instance Vec4p V4
+
+class Expr repr where
+    bool    :: Bool -> repr Bool
+    int     :: Int -> repr Int
+    float   :: Float -> repr Float
+    vec     :: Vec v => v (repr a) -> repr (v a)
+
+class BinOp repr where
+    mulOp   :: String -> repr (a -> a -> a)
+    addOp   :: String -> repr (a -> a -> a)
+    compOp  :: String -> repr (a -> a -> Bool)
+
+class Prim repr where
+    prim    :: String -> repr (a -> a)
+    prim2   :: String -> repr (a -> a -> a)
+    
+class Rewrite repr where
+    lam     :: (repr a -> repr b) -> repr (a -> b)
+    app     :: repr (a -> b) -> repr a -> repr b
+
+class Decl repr where
+    uni     :: repr a
+    val     :: repr a -> repr a
+    call    :: repr (a -> b) -> repr (a -> b)
+    proc    :: stmt (a -> b) -> repr (a -> b)
+
+class Stmt stmt where
+    local   :: decl a -> stmt ()
+    seq     :: stmt a -> stmt a -> stmt a
+    ifElse  :: repr Bool -> stmt a -> stmt a -> stmt a
+    caseOf  :: [(Int, stmt a)] -> stmt a
+    for     :: repr Int -> repr (Int -> Bool) -> repr (Int -> Int) -> stmt a -> stmt a
+    while   :: repr Bool -> stmt a -> stmt a
+    break   :: stmt ()
+    cont    :: stmt ()
+    ret     :: repr a -> stmt a
+    halt    :: stmt ()
+    discard :: stmt ()
+    noOp    :: stmt ()
