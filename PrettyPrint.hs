@@ -4,10 +4,10 @@ import Text.PrettyPrint.HughesPJ hiding (float, int)
 import qualified Text.PrettyPrint.HughesPJ as PP (float, int)
 import Language
 import Vector
-import Monad
+import Build
 import Region
-import Control.Monad.Reader
 import Data.Map (toAscList)
+import Control.Monad.State
 
 commasep :: [Doc] -> Doc
 commasep = sep . punctuate comma 
@@ -74,7 +74,6 @@ ppDecl d = case d of
                         (case e of Nothing -> empty
                                    Just x -> text "" <+> equals <+> ppExpr x) <> semi
     Procedure b s   -> ppBinding b $+$ braceblock (ppStmt s)
-    Function b e    -> ppBinding b $+$ braceblock (text "return" <+> ppExpr e <> semi)
    
 ppStmt :: Stmt -> Doc
 ppStmt s = case s of
@@ -96,13 +95,15 @@ ppStmt s = case s of
     Discard         -> text "discard" <> semi
     NoOp            -> empty
 
-ppFrag :: Fragment -> Doc
-ppFrag (Fragment (e, m ,r)) = ppEnv e $+$ ppMain m r
+ppFrag :: Frag -> Doc
+ppFrag f = let (us,gs,m) = mkFrag f in
+     vcat (map ppDecl us)
+ $+$ vcat (map ppDecl gs)
+ $+$ ppStmt m
 
-ppEnv :: Env -> Doc
-ppEnv = vcat . map (ppDecl . snd) . toAscList
-ppMain :: Stmt -> Region -> Doc
-ppMain m r = ppStmt $ shadeRegion m r
+instance Show Frag where show = render . ppFrag
+instance Show ([Expr] -> Expr) where
+    show c = case c [] of Call b [] -> render $ ppBinding b
 
-instance Show Fragment where show = render . ppFrag
-instance Show (Interpret a) where show = show . interpret
+instance Show (Env a) where show e = show $ (execState e) emptyEnv
+

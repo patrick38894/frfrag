@@ -53,6 +53,7 @@ data Stmt = Loc Bind Expr
           | NoOp
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
+void = VoidT
 int = IntT
 intp = Var int
 float = FloatT

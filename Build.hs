@@ -1,7 +1,7 @@
 module Build where
 import Control.Monad.State
 import Control.Applicative
-import qualified Data.Map as M(Map, insert, lookup, empty)
+import qualified Data.Map as M
 import Region
 import Language
 
@@ -129,8 +129,13 @@ mkCall :: Procedure -> Decl
 mkCall = undefined
 
 -- Set the GL fragment color
-setColor :: Expr -> Expr -> Expr -> BuildF ()
-setColor r g b = undefined
+setColor :: Expr -> BuildF ()
+setColor c = case c of
+    Vec r ns -> undefined
+    other -> error $ "Expected a Vec3 or Vec4"
+
+composeF :: ([Expr] -> Expr) -> ([Expr] -> Expr) -> ([Expr] -> Expr)
+composeF = undefined
 
 ------------------------------------------------------------------------------
 -- Fragments
@@ -138,13 +143,14 @@ data Frag       = Frag { fenv :: Env (),
                          fmain :: BuildF (),
                          fregion :: Region }
 
+listEnv :: M.Map String Decl -> [Decl]
+listEnv = map snd . M.toAscList
+
 emptyFrag :: Frag
 emptyFrag = undefined
 
-emptyEnv :: Env ()
-emptyEnv = do
-    put (M.empty, 0)
-    return ()
+emptyEnv :: (M.Map String Decl, Int)
+emptyEnv = (M.empty, 0)
 
 emptyStmt :: Stmt
 emptyStmt = undefined
