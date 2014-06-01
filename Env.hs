@@ -50,7 +50,14 @@ listEnv :: M.Map String Decl -> [Decl]
 listEnv = map snd . M.toAscList
 
 sepUniforms :: M.Map String Decl -> ([Decl], [Decl])
-sepUniforms = undefined
+sepUniforms e = (l us, l ds)
+ where (us, ds) = M.partition isUniform e
+       l = map snd . M.toAscList
+
+isUniform :: Decl -> Bool
+isUniform d = case d of
+    Uniform _ _ -> True
+    other -> False
 
 emptyEnv :: (M.Map String Decl, Int)
 emptyEnv = (M.empty, 0)
