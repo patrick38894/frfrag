@@ -29,6 +29,7 @@ instance Floating a => Floating (VecN a) where
  
 instance Num Expr where
     (+) = BinOp PolyT PolyT PolyT "+" 
+    (-) = BinOp PolyT PolyT PolyT "-"
     (*) = BinOp PolyT PolyT PolyT "*" 
     abs = Prim PolyT PolyT "abs"
     signum = Prim PolyT PolyT "sign"

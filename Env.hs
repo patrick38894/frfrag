@@ -77,7 +77,7 @@ allSameOrVoid xs = snd $ foldr f acc xs
             False   -> case x of
                         Halt -> (True, if t == Right VoidT
                             then t else Left $ ExpectedReturn r)
-                        other -> (False, if r == Right VoidT 
+                        other -> (False, if t == Right VoidT 
                                         || t == r || r == Right PolyT
                             then t else Left $ RetUnification t r)
 
@@ -153,7 +153,7 @@ procedure f     = do
 ------------------------------------------------------------------------------
 -- Procedure subenvironment
 
-newtype BldProc = BldProc ([Bind], [Stmt])
+newtype BldProc = BldProc ([Bind], [Stmt]) deriving Show
 type RunProc    = RWST Env BldProc Int (Either EnvErr)
 
 instance Monoid BldProc where
@@ -164,8 +164,10 @@ instance Monoid BldProc where
 buildProc       :: RunProc () -> RunEnv BldProc
 buildProc p     = do
     e           <- ask
-    Right (e',BldProc (as,f)) <- return $ evalRWST (p >> ask) e 0
-    local (const e') (return $ BldProc (as, f))
+    r <- return $ evalRWST (p >> ask) e 0
+    case r of 
+        Right (e',BldProc (as,f)) -> local (const e') (return $ BldProc (as, f))
+        other -> error (show r)
 
 param           :: Rep -> RunProc Expr
 param r         = do
@@ -188,20 +190,24 @@ mutate b e      = case b of
     Val (Var r s) -> if r == etype e 
                     then nextDo (Mut (Var r s) e)
                     else lift (Left $ MutUnification b e)
+    Val FragColor -> --if etype e == VecT FloatT N4 
+                      --then 
+                      nextDo (Mut FragColor e)
+                      --else lift (Left $ MutUnification b e)
 
 asStatement     :: BldProc -> Stmt
 asStatement     = undefined
 
 ------------------------------------------------------------------------------
-fragMain        :: RunProc () -> RunEnv [Decl]
+fragMain        :: RunProc () -> RunEnv ()
 fragMain p      = do
     BldProc ([],s) <- buildProc p
     (us,ds)     <- asks sepUniforms 
     let fmain   = Procedure (Func (Var void "main") []) (Seq s)
     tell [fmain]
-    return (us ++ ds ++ [fmain])
+    return ()
 
 --runFrag         :: RunEnv [Decl] -> [Decl]
 runFrag r       = case evalRWST r emptyEnv 0 of
-                    Right x ->  x
+                    Right x ->  snd x
                     Left err -> error (show err)

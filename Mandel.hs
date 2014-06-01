@@ -3,12 +3,15 @@ import Language
 import PrettyPrint
 import Num
 import Vector
+import Text.PrettyPrint.HughesPJ hiding (float, int)
 
 complexMult :: Expr
 complexMult = undefined
 
 colormap :: Float -> Float -> Expr -> Expr
 colormap c1 c2 e = Vec (VecT FloatT N4) (Vec4 (e*2) (1-e*10) 0.5 1.0)
+
+main = putStrLn . render . vcat $ map ppDecl (runFrag $ mandelbrot 1 2)
 
 calcMandelbrot = procedure calc
     where 
