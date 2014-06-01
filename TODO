@@ -31,7 +31,10 @@
         Fire
         Starfield
 -- 11) Add Stream functions for more abstract loops
--- 12) Add Structs. Add GHC-Generic based struct coupling.
+-- 12) Add Structs. 
+            Add memoization of globals with sentinels.
+            Add GHC-Generic based struct coupling.
 -- 13) Add optimization - constant folding.
 -- 14) Clean up repo and refactor.
--- 15) Add well-typed semantics
+-- 15) Add well-typed semantics.
+-- 16) Add arrays.

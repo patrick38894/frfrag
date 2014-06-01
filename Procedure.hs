@@ -26,7 +26,7 @@ param = undefined
 
 -- Declare many params, getting back references.
 params :: [Rep] -> BuildF [Expr]
-params = undefined
+params = mapM param
 
 -- Declare an immutable value in the local scope,
 -- and get back a reference to that value.
@@ -35,7 +35,7 @@ letF = undefined
 
 -- Declare many immutable values, getting back references.
 letFs :: [Expr] -> BuildF [Expr]
-letFs = undefined
+letFs = mapM letF
 
 -- Assign to a mutable value, getting back a reference to it.
 --  (If it does not exist, declare it.
@@ -45,14 +45,7 @@ setF = undefined
 
 -- Assign many values at a time.
 setFs :: [Expr] -> BuildF [Expr]
-setFs = undefined
-
--- Declare an immutable global value for a particular expression,
--- set to a sentinel and lazily initialized the first time it's used.
--- Whenever that expression is used, just use the global instead from then on.
--- 
-memoF :: Expr -> BuildF Expr
-memoF = undefined
+setFs = mapM setF
 
 -- Return a value,
 -- setting the return type if not set,
