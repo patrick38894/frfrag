@@ -10,6 +10,7 @@ data Rep = VoidT
          | IntT
          | FloatT
          | VecT Rep N
+         | PolyT
          deriving (Eq, Ord, Show)
 ------------------------------------------------------------------------------
 data Bind = Void
@@ -26,9 +27,9 @@ data Expr = Float Float
           | Vec Rep (VecN Expr)
           | Val Bind
           | Call Bind [Expr]
-          | Prim String Expr
-          | Prim2 String Expr Expr
-          | BinOp String Expr Expr
+          | Prim Rep Rep String Expr
+          | Prim2 Rep Rep Rep String Expr Expr
+          | BinOp Rep Rep Rep String Expr Expr
           deriving (Eq, Show)
 ------------------------------------------------------------------------------
 data Decl = Value Bind Expr
@@ -72,4 +73,5 @@ vec4e = Val . vec4p
 vec :: [Float] -> Expr
 vec xs = Vec (VecT FloatT (fromInt (length xs))) (vecFromList (map Float xs)) 
 
+fragColor = Val FragColor
 fragCoord = Val FragCoord

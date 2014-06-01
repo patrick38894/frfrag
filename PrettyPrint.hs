@@ -5,8 +5,6 @@ import qualified Text.PrettyPrint.HughesPJ as PP (float, int)
 import Language
 import Vector
 import Env
-import Procedure
-import Fragment
 import Region
 import Data.Map (toAscList)
 import Control.Monad.State
@@ -65,9 +63,9 @@ ppExpr e = case e of
     Vec r x         -> ppRep r <> parens (commasep $ map ppExpr (vecToList x))
     Val v           -> ppName v 
     Call b as       -> ppName b <> parens (commasep $ map ppExpr as)
-    Prim s a        -> text s <> parens (ppExpr a)
-    Prim2 s a b     -> text s <> parens (commasep $ map ppExpr [a,b])
-    BinOp s a b     -> parens $ ppExpr a <+> text s <+> ppExpr b
+    Prim _ _ s a        -> text s <> parens (ppExpr a)
+    Prim2 _ _ _ s a b     -> text s <> parens (commasep $ map ppExpr [a,b])
+    BinOp _ _ _ s a b     -> parens $ ppExpr a <+> text s <+> ppExpr b
 
 ppDecl :: Decl -> Doc
 ppDecl d = case d of
@@ -97,15 +95,9 @@ ppStmt s = case s of
     Discard         -> text "discard" <> semi
     NoOp            -> empty
 
-ppFrag :: Frag -> Doc
-ppFrag f = let (us,gs,m) = mkFrag f in
-     vcat (map ppDecl us)
- $+$ vcat (map ppDecl gs)
- $+$ ppStmt m
+ppFrag :: [Decl] -> Doc
+ppFrag f = vcat (map ppDecl f)
 
-instance Show Frag where show = render . ppFrag
 instance Show ([Expr] -> Expr) where
     show c = case c [] of Call b [] -> render $ ppBinding b
-
-instance Show (Env a) where show e = show $ execState e emptyEnv
 

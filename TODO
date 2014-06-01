@@ -35,6 +35,6 @@
             Add memoization of globals with sentinels.
             Add GHC-Generic based struct coupling.
 -- 13) Add optimization - constant folding.
--- 14) Clean up repo and refactor.
+-- 14) Clean up repo and refactor. Make all errors consistently handled.
 -- 15) Add well-typed semantics.
 -- 16) Add arrays.
