@@ -9,7 +9,7 @@ import Env
 data Procedure = MkProc Rep [Rep] Stmt
 type BuildF a = State (M.Map String Decl, Int, Procedure) a
 
-buildf          :: BuildF a ->  Env ([Bind], Stmt)
+buildf          :: BuildF a ->  RunEnv ([Bind], Stmt)
 buildf          = undefined
 
 lookVal         :: Bind -> BuildF (Maybe Expr)

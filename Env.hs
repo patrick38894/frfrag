@@ -1,20 +1,19 @@
 module Env where
 import Language
-import Control.Monad.State
+import Control.Monad.RWS
+import Control.Monad.Trans.Except
 import qualified Data.Map as M
 
 ------------------------------------------------------------------------------
--- Environments and declarations
-type Env        = State (M.Map String Decl, Int)
-
-searchName      :: String -> Env (Maybe Decl)
-searchName s    = fmap (M.lookup s) env
-
+-- Util
 binding         :: Decl -> Bind
 binding d          = case d of
     Value b _   -> b
     Uniform b _ -> b
     Procedure b _ -> b
+
+name            :: Decl -> String
+name            = bname . binding
 
 bname           :: Bind -> String
 bname b         = case b of
@@ -22,42 +21,85 @@ bname b         = case b of
     Func b _    -> bname b
     other       -> error $ "No user-defined name for special binding " ++ show other
 
-name            :: Decl -> String
-name            = bname . binding
-
-declval          :: Decl -> Env Expr
-declval d       = do
-    (env, i)    <- get
-    put (M.insert (name d) d env, i)
-    return (Val (binding d))
-
-declfunc        :: Decl -> Env ([Expr] -> Expr)
-declfunc d      = do
-    (env, i)    <- get
-    put (M.insert (name d) d env, i)
-    return (Call (binding d))
-
-nextv           :: Env Int
-nextv           = do
-    (env,i)     <- get
-    put (env,i+1)
-    return i
-
-env             :: Env (M.Map String Decl)
-env             = fmap fst get
-
-listEnv :: M.Map String Decl -> [Decl]
-listEnv = map snd . M.toAscList
-
-sepUniforms :: M.Map String Decl -> ([Decl], [Decl])
-sepUniforms e = (l us, l ds)
- where (us, ds) = M.partition isUniform e
-       l = map snd . M.toAscList
-
 isUniform :: Decl -> Bool
 isUniform d = case d of
     Uniform _ _ -> True
     other -> False
 
-emptyEnv :: (M.Map String Decl, Int)
-emptyEnv = (M.empty, 0)
+retType         :: Stmt -> Either EnvErr Rep
+retType         = undefined
+
+------------------------------------------------------------------------------
+-- Map from names to declarations
+type Env        = M.Map String Decl
+
+emptyEnv        :: Env
+emptyEnv        = M.empty
+
+listEnv :: Env -> [Decl]
+listEnv = map snd . M.toAscList
+
+sepUniforms :: M.Map String Decl -> ([Decl], [Decl])
+sepUniforms e = (listEnv us, listEnv ds)
+ where (us, ds) = M.partition isUniform e
+
+------------------------------------------------------------------------------
+-- Declaration environment
+data EnvErr     = AlreadyDefined Bind
+                | OtherErr String
+                deriving Show
+
+type RunEnv     = RWST Env [Decl] Int (Either EnvErr)
+
+searchName      :: String -> RunEnv (Maybe Decl)
+searchName s    = asks $ M.lookup s
+
+withDecl d f    = local (M.insert (name d) d) $ do
+                    tell [d]
+                    return $ f d
+
+validate        :: Expr -> RunEnv Expr
+validate        = return . id
+
+declVal         :: Decl -> RunEnv Expr
+declVal d       = withDecl d (Val . binding) >>= validate
+
+declFunc        :: Decl -> RunEnv ([Expr] -> Expr)
+declFunc d      = withDecl d (Call . binding)
+
+nextv           :: RunEnv Int
+nextv           = state (\i -> (i, i+1))
+
+------------------------------------------------------------------------------
+-- High level declarations
+uniform         :: Rep -> Maybe Expr -> RunEnv Expr
+uniform r e     = do
+    i           <- nextv
+    declVal (Uniform (Var r ("uni" ++ show i)) e)
+
+value           :: Rep -> Expr -> RunEnv Expr
+value r e       = do
+    i           <- nextv
+    declVal (Value (Var r ("var" ++ show i)) e)
+    
+
+procedure       :: RunProc () -> RunEnv ([Expr] -> Expr)
+procedure f     = do
+    i           <- nextv
+    (as,s)      <- buildProc f
+    case retType s of
+        Right r -> declFunc (Procedure (Func (Var r $ "proc" ++ show i) as) s)
+        Left e -> lift (Left e)
+------------------------------------------------------------------------------
+-- Procedure subenvironment
+
+type RunProc    = RWST Env ([Bind],[Stmt]) Int (Either EnvErr)
+
+buildProc       :: RunProc () -> RunEnv ([Bind],Stmt)
+buildProc p     = do
+    e           <- ask
+    Right (e',(as,f)) <- return $ evalRWST (p >> ask) e 0
+    local (const e') (return (as, Seq f))
+    
+
+

@@ -7,21 +7,10 @@ import Language
 import Env
 import Procedure
 
-uniform         :: Rep -> String -> Maybe Expr -> Env Expr
-uniform r s e   = do
-    exists      <- searchName s
-    case exists of
-        Nothing -> declval (Uniform (Var r s) e)
-        Just x  -> error $ unwords ["Cannot declare ", show s,
-                                   " (", show x, " defined)"]
+type Build = State Fragment
 
-value           :: Rep -> Expr -> Env Expr
-value r e       = do
-    i           <- nextv
-    declval (Value (Var r ("var" ++ show i)) e)
-    
 
-procedure       :: Rep -> BuildF a -> Env ([Expr] -> Expr)
+procedureE       :: Rep -> BuildF a -> Env ([Expr] -> Expr)
 procedure r bf  = do
     e           <- env
     i           <- nextv
