@@ -11,7 +11,7 @@ colormap = undefined
 calcMandelbrot = procedure vec2t calc
     where calc = undefined
 
-main = putStrLn $ show (mandelbrotEnv 1 2)
+main = print (mandelbrotEnv 1 2)
 
 mandelbrotEnv c1 c2 =   do
     zoom    <- uniform vec2t "zoom"     (Just $ vec [4, 4])

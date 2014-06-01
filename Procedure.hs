@@ -61,9 +61,9 @@ mkCall = undefined
 setColor :: Expr -> BuildF ()
 setColor c = case c of
     Vec r ns -> undefined
-    other -> error $ "Expected a Vec3 or Vec4"
+    other -> error  "Expected a Vec3 or Vec4"
 
-composeF :: ([Expr] -> Expr) -> ([Expr] -> Expr) -> ([Expr] -> Expr)
+composeF :: ([Expr] -> Expr) -> ([Expr] -> Expr) -> [Expr] -> Expr
 composeF = undefined
 
 

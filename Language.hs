@@ -1,7 +1,5 @@
 {-# Language
         FlexibleInstances,
-        GADTs,
-        KindSignatures,
         TypeSynonymInstances #-}
 
 module Language where

@@ -107,5 +107,5 @@ instance Show Frag where show = render . ppFrag
 instance Show ([Expr] -> Expr) where
     show c = case c [] of Call b [] -> render $ ppBinding b
 
-instance Show (Env a) where show e = show $ (execState e) emptyEnv
+instance Show (Env a) where show e = show $ execState e emptyEnv
 
