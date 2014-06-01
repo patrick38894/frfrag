@@ -2,14 +2,22 @@ import Env
 import Language
 import PrettyPrint
 import Num
+import Vector
+
 complexMult :: Expr
 complexMult = undefined
 
 colormap :: Float -> Float -> Expr -> Expr
-colormap = undefined
+colormap c1 c2 e = Vec (VecT FloatT N4) (Vec4 (e*2) (1-e*10) 0.5 1.0)
 
 calcMandelbrot = procedure calc
-    where calc = undefined
+    where 
+      calc = do
+        p <- param vec2t
+        iter <- param int
+        step <- param float
+        -- TODO , actual calculation
+        ret step
 
 mandelbrot c1 c2 =   do
     zoom    <- uniform vec2t (Just $ vec [4, 4])
