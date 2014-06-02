@@ -22,6 +22,11 @@ class Expr expr where
     val     :: Tag a => Bind -> expr a
     swiz    :: Tag a => Bind -> String -> expr a
 
+class Decl decl where
+    uni     :: Either Type (expr a) -> decl (expr a)
+    value   :: expr a -> decl (expr a)
+    proc    :: stmt a -> decl a
+
 class Stmt stmt where
     set     :: decl a -> stmt ()
     ifElse  :: expr Bool -> stmt a -> stmt a -> stmt a
@@ -34,11 +39,6 @@ class Stmt stmt where
     halt    :: stmt ()
     discard :: stmt ()
     noOp    :: stmt () -> stmt next
-
-class Decl decl where
-    uni     :: Expr expr => Either Type (expr a) -> decl (expr a)
-    value   :: Expr expr => expr a -> decl (expr a)
-    proc    :: Stmt stmt => stmt a -> decl a
 
 ------------------------------------------------------------------------------
 -- Tagged type-erased data structures
