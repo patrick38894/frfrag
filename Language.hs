@@ -27,7 +27,7 @@ class RunExpr expr rexp where
 
 class Refr refr where
     val     :: Tag a => Bind -> refr a
-    call    :: Tag a => Bind -> [Bind] -> refr a -> refr b
+    call    :: Tag a => Bind -> [Bind] -> refr a
     swiz    :: Tag a => Bind -> String -> refr a
 
 class Abst abst where
@@ -35,9 +35,9 @@ class Abst abst where
     app     :: abst (a -> b) -> abst a -> abst b
 
 class Decl decl where
-    uni     :: (Refr refr, Tag a) => Either Type (TagE a) -> decl (refr a)
-    value   :: expr a -> decl (expr a)
-    proc    :: stmt a -> decl a
+    uni     :: (Tag a, Refr refr) => Either Type (TagE a) -> decl (refr a)
+    value   :: Tag a => TagE a -> decl (TagE a)
+    proc    :: (Tag a, Stmt stmt) => stmt a -> decl ([Bind] -> TagE a)
 
 class Stmt stmt where
     set     :: decl a -> stmt ()
@@ -102,7 +102,8 @@ instance Tag Float where tag = const (Type Float 1 1)
 instance Tag a => Tag (Vec a) where tag (Vec xs) = let Type t m 1 = sameDim $ map tag xs
                                                    in Type t (length xs) m
 
-instance (Expr expr, Tag a) => Tag (expr a) where -- TODO
+instance (Expr expr, Tag a) => Tag (expr a) where
+    tag e = error "Default instance for Tag (expr a) not actually implemented"
 
 ------------------------------------------------------------------------------
 instance Tag a => Tag (TagE a) where
@@ -128,8 +129,6 @@ instance Refr TagE where
     call f xs  = undefined -- TODO
     swiz b s = undefined -- TODO
 
-instance RunExpr TagE TagExpr where run = mkTag
-
 ------------------------------------------------------------------------------
 type WriteProg = StateT Int (Writer [TagDecl])
 instance Decl WriteProg where
@@ -138,12 +137,31 @@ instance Decl WriteProg where
         let (t,x) = case e of
                     Left t -> (t, Nothing)
                     Right r -> (tag r, Just r)
-        tell [Uni i t (fmap run x)]
+        tell [Uni i t (fmap mkTag x)]
         return (val (Var t i))
+    value e = let t = tag e in do
+        i <- nexti
+        tell [Value i t (mkTag e)]
+        return (val (Var t i))
+    proc s = do
+        i <- nexti
+        (t, ts) <- tagStmt s
+        tell [Proc i t ts (mkStmt s)]
+        return (call (Var t i)) 
 
+
+tagStmt :: (Tag a, Stmt stmt) => stmt a -> WriteProg (Type, [Type])
+tagStmt = undefined
+
+mkArgs :: [Type] -> [Bind]
+mkArgs = undefined
 ------------------------------------------------------------------------------
 type WriteProc = RWS [TagDecl] [TagStmt] Int
 instance Stmt WriteProc
+
+mkStmt :: Stmt stmt => stmt a -> TagStmt
+mkStmt = undefined
+
 ------------------------------------------------------------------------------
 -- Misc functions
 
