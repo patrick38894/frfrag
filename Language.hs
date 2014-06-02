@@ -1,4 +1,5 @@
 {-# Language DeriveFunctor, 
+             FlexibleContexts,
              FlexibleInstances,
              GADTs, 
              RankNTypes,
@@ -94,7 +95,10 @@ instance Tag a => Tag (Vec a) where tag (Vec xs) = let Type t m 1 = sameDim $ ma
 instance Tag a => Tag (TagE a) where
     tag (TagE t) = case t of
         Lit t _ -> t
-        MulOp _ t _ _ -> t
+        MulOp s t x y -> case s of 
+                        "*" -> undefined -- Matrix multiplication
+                                -- if x and y are matrices
+                        op -> undefined
         -- TODO MISSING INSTANCES
 
 instance Expr TagE where
@@ -103,14 +107,14 @@ instance Expr TagE where
     -- TODO MISSING INSTNACES
 
 ------------------------------------------------------------------------------
-type WriteDecl = StateT Int (Writer [TagDecl])
-instance Decl WriteDecl
+type WriteProg = StateT Int (Writer [TagDecl])
+instance Decl WriteProg
 type WriteProc = RWS [TagDecl] [TagStmt] Int
 instance Stmt WriteProc
 ------------------------------------------------------------------------------
 -- Misc functions
 
-nexti       :: WriteDecl Int
+nexti       :: MonadState Int m => m Int
 nexti       = get >>= \i -> put (i + 1) >> return i
 
 sameDim :: (Eq a, Show a) => [a] -> a
