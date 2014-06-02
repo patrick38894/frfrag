@@ -1,7 +1,9 @@
 {-# Language DeriveFunctor, 
              FlexibleContexts,
              FlexibleInstances,
-             GADTs, 
+             GADTs,
+             IncoherentInstances,
+             MultiParamTypeClasses, 
              RankNTypes,
              StandaloneDeriving #-}
 
@@ -18,13 +20,22 @@ class Expr expr where
     addOp   :: Tag a => String -> expr a -> expr a -> expr a    
     compOp  :: Tag a => String -> expr a -> expr a -> expr Bool
     prim    :: Tag a => String -> expr a -> expr b
-    prim2   :: Tag a => String -> expr a -> expr b -> expr c
-    call    :: Tag a => decl (a -> b) -> expr a -> expr b
-    val     :: Tag a => Bind -> expr a
-    swiz    :: Tag a => Bind -> String -> expr a
+    prim2   :: (Tag a, Tag b) => String -> expr a -> expr b -> expr c
+
+class RunExpr expr rexp where
+    run     :: Expr expr => expr a -> rexp
+
+class Refr refr where
+    val     :: Tag a => Bind -> refr a
+    call    :: Tag a => Bind -> [Bind] -> refr a -> refr b
+    swiz    :: Tag a => Bind -> String -> refr a
+
+class Abst abst where
+    lam     :: Bind -> Bind -> abst (a -> b)
+    app     :: abst (a -> b) -> abst a -> abst b
 
 class Decl decl where
-    uni     :: Either Type (expr a) -> decl (expr a)
+    uni     :: (Refr refr, Tag a) => Either Type (TagE a) -> decl (refr a)
     value   :: expr a -> decl (expr a)
     proc    :: stmt a -> decl a
 
@@ -32,31 +43,32 @@ class Stmt stmt where
     set     :: decl a -> stmt ()
     ifElse  :: expr Bool -> stmt a -> stmt a -> stmt a
     caseOf  :: [(Int, stmt a)] -> stmt a
-    for     :: expr Int -> expr (Int -> Bool) -> expr (Int -> Int) -> stmt a -> stmt a
+    for     :: expr Int -> expr (Int -> Bool) -> expr (Int -> Int) 
+            -> stmt a -> stmt a
     while   :: expr Bool -> stmt a -> stmt a
     break   :: stmt ()
     cont    :: stmt ()
     ret     :: expr a -> stmt a 
     halt    :: stmt ()
     discard :: stmt ()
-    noOp    :: stmt () -> stmt next
+    noOp    :: stmt ()
 
 ------------------------------------------------------------------------------
--- Tagged type-erased data structures
+-- Tagged data structures
 data TagExpr = Lit Type Erased
              | MulOp String Type TagExpr TagExpr
              | AddOp String Type TagExpr TagExpr
              | CompOp String Type TagExpr TagExpr
              | Prim String Type Type TagExpr
              | Prim2 String Type Type Type TagExpr TagExpr
-             | Call Type [Type]
+             | Call Bind [Bind]
              | Val Bind
              | Swiz Bind String
              deriving Show
 
-data TagDecl = Uni   String Type (Maybe TagExpr)
-             | Value String Type TagExpr
-             | Proc  String Type [Type] TagStmt 
+data TagDecl = Uni   Int Type (Maybe TagExpr)
+             | Value Int Type TagExpr
+             | Proc  Int Type [Type] TagStmt 
 
 data TagStmt = DecVal TagDecl
              | Mutate TagDecl
@@ -71,8 +83,7 @@ data TagStmt = DecVal TagDecl
              | Cont
              | NoOp
 
-newtype TagE a = TagE {erase :: TagExpr} deriving (Functor, Show)
-
+newtype TagE a = TagE {mkTag :: TagExpr} deriving (Functor, Show)
 ------------------------------------------------------------------------------
 -- Type erasure and tagging
 data PrimType = Bool | Int | Float deriving (Eq, Show)
@@ -91,24 +102,46 @@ instance Tag Float where tag = const (Type Float 1 1)
 instance Tag a => Tag (Vec a) where tag (Vec xs) = let Type t m 1 = sameDim $ map tag xs
                                                    in Type t (length xs) m
 
+instance (Expr expr, Tag a) => Tag (expr a) where -- TODO
+
 ------------------------------------------------------------------------------
 instance Tag a => Tag (TagE a) where
     tag (TagE t) = case t of
         Lit t _ -> t
-        MulOp s t x y -> case s of 
-                        "*" -> undefined -- Matrix multiplication
-                                -- if x and y are matrices
-                        op -> undefined
-        -- TODO MISSING INSTANCES
+        MulOp _ t _ _ -> t
+        AddOp _ t _ _ -> t
+        CompOp _ t _ _ -> t
+    -- TODO MISSING INSTANCES
 
 instance Expr TagE where
     lit a       = TagE $ Lit (tag a) (Erased a)
-    mulOp s x y = TagE $ MulOp s (tag x) (erase x) (erase y) 
-    -- TODO MISSING INSTNACES
+    mulOp s x y = TagE $ MulOp s (case s of "*" -> mulTag x y
+                                            o -> opTag x y) (mkTag x) (mkTag y) 
+    addOp s x y = TagE $ AddOp s (opTag x y) (mkTag x) (mkTag y)
+    compOp s x y = TagE $ CompOp s (opTag x y) (mkTag x) (mkTag y)
+    prim s x = TagE $ Prim s (primTag s $ tag x) (tag x) (mkTag x)
+    prim2 s x y = TagE $ Prim2 s (prim2Tag s (tag x) (tag y)) 
+                                 (tag x) (tag y) (mkTag x) (mkTag y)
+    
+instance Refr TagE where
+    val b = TagE $ Val b
+    call f xs  = undefined -- TODO
+    swiz b s = undefined -- TODO
+
+instance RunExpr TagE TagExpr where run = mkTag
 
 ------------------------------------------------------------------------------
 type WriteProg = StateT Int (Writer [TagDecl])
-instance Decl WriteProg
+instance Decl WriteProg where
+    uni e = do
+        i <- nexti
+        let (t,x) = case e of
+                    Left t -> (t, Nothing)
+                    Right r -> (tag r, Just r)
+        tell [Uni i t (fmap run x)]
+        return (val (Var t i))
+
+------------------------------------------------------------------------------
 type WriteProc = RWS [TagDecl] [TagStmt] Int
 instance Stmt WriteProc
 ------------------------------------------------------------------------------
@@ -123,4 +156,19 @@ sameDim (x:y:xs) = if x == y
     then sameDim (y:xs) 
     else error $ concat ["Inconsistent vector or matrix dimension (",
                           show x, ") /= (", show y, ")"]
+primTag :: String -> Type -> Type
+primTag = undefined
+
+prim2Tag :: String -> Type -> Type -> Type
+prim2Tag = undefined
+
+-- For ALL ops other than matrix multiplication
+-- the dimension of the two exprs must be the same.
+opTag :: Expr expr => expr a -> expr a -> Type
+opTag = undefined
+
+-- For multiplication, matrices need to be nxm x mxo = nxo
+mulTag :: Expr expr => expr a -> expr a -> Type
+mulTag = undefined
+
 
