@@ -8,19 +8,16 @@
              StandaloneDeriving #-}
 
 module Language where
-import Control.Monad.State
-import Control.Monad.Writer
 import Control.Monad.RWS
 
 ------------------------------------------------------------------------------
 -- Type representations
 data PrimType = Bool | Int | Float deriving (Eq, Show)
-data Type = Type PrimType Int Int deriving (Eq, Show)
+data Type = Type PrimType Int Int | Void deriving (Eq, Show)
 data Bind = Var Type Int deriving (Eq, Show)
 data Erased = forall a . (Show a, Tag a) => Erased a; deriving instance Show Erased
 
 class Tag a where tag :: a -> Type
-
 instance Tag Bool where tag = const (Type Bool 1 1)
 instance Tag Int where tag = const (Type Int 1 1)
 instance Tag Float where tag = const (Type Float 1 1)
@@ -29,7 +26,7 @@ instance Tag Bind where tag (Var t i) = t
 instance Tag Erased where tag (Erased a) = tag a
 
 ------------------------------------------------------------------------------
--- Matrix numbers
+-- Matrices
 data Mat a = Mat [[a]] deriving Show
 instance Tag a => Tag (Mat a) where 
  tag (Mat xs) = let (Type t 1 1) = tag (head (head xs))
@@ -61,7 +58,8 @@ class Abst abst where
     app     :: abst (a -> b) -> abst a -> abst b
 
 class Stmt stmt where
-    set     :: Tag a => Bind -> TagE a -> stmt (TagE a)
+    param   :: Tag a => Type -> stmt Bind
+    set     :: Tag a => Bind -> TagE a -> stmt Bind
     ifElse  :: TagE Bool -> stmt () -> stmt () -> stmt ()
     for     :: TagE Int -> (TagE Int -> TagE Bool) -> (TagE Int -> TagE Int) 
             -> stmt () -> stmt ()
@@ -92,7 +90,8 @@ data TagExpr = Lit Type Erased
              | Swiz Bind Type String
              deriving Show
 
-data TagStmt = DecVal TagDecl
+data TagStmt = Param Bind
+             | DecVal TagDecl
              | Mutate TagDecl
              | Block [TagStmt]
              | IfElse TagExpr TagStmt TagStmt
@@ -114,8 +113,10 @@ data TagDecl = Uni   Int Type (Maybe TagExpr)
 -- Expr instance : TagE
 
 newtype TagE a = TagE {mkExpr :: TagExpr} deriving (Functor, Show)
-instance Tag a => Tag (TagE a) where
-    tag (TagE t)            = case t of
+instance Tag a => Tag (TagE a) where tag (TagE t) = tag t
+
+instance Tag TagExpr where
+    tag t = case t of
         Lit t _             -> t
         MulOp _ t _ _       -> t
         AddOp _ t _ _       -> t
@@ -146,9 +147,16 @@ instance Refr TagE where
 ------------------------------------------------------------------------------
 
 type WriteProc = RWS [TagDecl] [TagStmt] Int
-instance Show (WriteProc ()) where show = show . runProc [] 
+runProc :: WriteProc () -> [TagDecl] -> Int -> TagStmt
+runProc w e i = Block $ snd $ evalRWS w e i
+instance Show (WriteProc ()) where show w = show $ runProc w [] 0
 
 instance Stmt WriteProc where
+    param t = do
+        i <- nexti
+        let b = Var t i
+        tell [Param b]
+        return b
     set b e = do
         i <- nexti
         d <- asks (search b)
@@ -156,19 +164,21 @@ instance Stmt WriteProc where
         case d of
             Just x -> tell [Mutate d']
             Nothing -> local (extend d') $ tell [DecVal d']
-        return (val b)
+        return b
     ifElse p i e = do
         u <- ask
-        tell [IfElse (mkExpr p) (runProc u i) (runProc u e)]
+        n <- get
+        tell [IfElse (mkExpr p) (runProc i u n) (runProc e u n)]
     for s p t d = do
         i <- nexti
         u <- ask
         let v = mkDecl s i
         tell [For v (mkExpr (p $ val (Var (Type Int 1 1) i))) 
-                    (mkExpr (t $ val (Var (Type Int 1 1) i))) (runProc u d)]
+                    (mkExpr (t $ val (Var (Type Int 1 1) i))) (runProc d u i)]
     while e s = do 
         u <- ask
-        tell [While (mkExpr e) (runProc u s)]
+        i <- get
+        tell [While (mkExpr e) (runProc s u i)]
     ret r = tell [Ret (mkExpr r)]
     break = tell [Break]
     cont = tell [Cont]
@@ -176,14 +186,13 @@ instance Stmt WriteProc where
     discard = tell [Discard]
     noOp = tell [NoOp]
 
-
-runProc :: [TagDecl] -> WriteProc () -> TagStmt
-runProc e w = Block $ snd $ evalRWS w e 0
-
 ------------------------------------------------------------------------------
 -- Decl instance : WriteProg
 
 type WriteProg = RWS [TagDecl] [TagDecl] Int
+runProg :: WriteProg a -> [TagDecl]
+runProg p = snd $ evalRWS p [] 0
+instance Show (WriteProg a) where show = show . runProg
 instance Decl WriteProg where
     uni e = do
         i <- nexti
@@ -200,15 +209,12 @@ instance Decl WriteProg where
         return (val (Var t i))
     proc s = do
         i <- nexti
-        (t, ts) <- tagStmt s
         e <- ask
-        let p = Proc i t ts (runProc e s)
+        let st = runProc s e i
+            (t, ts) = tagStmt st
+            p = Proc i t ts st
         local (extend p) $ tell [p]
         return (call (Var t i)) 
-
-runProg :: WriteProg a -> [TagDecl]
-runProg p = snd $ evalRWS p [] 0
-
 
 ------------------------------------------------------------------------------
 -- Misc functions
@@ -221,44 +227,44 @@ primTag s t = t -- TODO check if this is actually right
 prim2Tag :: String -> Type -> Type -> Type
 prim2Tag s t u = t -- TODO check if this is actually right
 
--- For ALL ops other than matrix multiplication
--- the dimension of the two exprs must be the same.
 opTag :: Tag a => TagE a -> TagE a -> Type
 opTag x y = case (tag x, tag y) of
-    (Type a n m, Type _ n' m') -> 
-        if n == n' && m == m' 
-            then Type a n m
-            else if n == 1 && m == 1
-                then Type a n' m'
-                else if n' == 1 && m' == 1 
-                    then Type a n m
-                    else error "Inconsistent vector or matrix dimension"
+  (Type a n m, Type _ n' m') 
+    | n == n' && m == m' || n' == 1 && m' == 1 -> Type a n m
+    | n == 1 && m == 1 -> Type a n' m'
+    | otherwise -> error "Inconsistent vector or matrix dimension"
 
--- For multiplication, matrices need to be nxm x mxo = nxo
 mulTag :: Tag a => TagE a -> TagE a -> Type
 mulTag x y = case (tag x, tag y) of
-    (Type a n m, Type _ m' o) -> case m of
-        1 -> Type a m' o
-        k -> case m' of
-            1 -> if o == k || o == 1 
-                    then Type a k 1
-                    else error "Incorrect vector multiplication dimension"
-            j -> if j == k 
-                    then Type a n o
-                    else error "Incorrect matrix multiplication dimension"
+  (Type a n m, Type _ m' o) -- -> case m of
+    | n == 1 && m == 1 -> Type a m' o
+    | m' == 1 && (m == o || o == 1) -> Type a n 1
+    | m' == m -> Type a n o 
+    | otherwise -> error "Incorrect vector mult. dimension"
 
-tagStmt :: Stmt stmt => stmt () -> WriteProg (Type, [Type])
-tagStmt = undefined
-
-mkArgs :: [Type] -> [Bind]
-mkArgs = undefined
-
-search ::  Bind -> [TagDecl] -> Maybe (TagDecl)
-search = undefined
+tagStmt :: TagStmt -> (Type, [Type])
+tagStmt s = case s of
+    Ret a -> (tag a, [])
+    IfElse _ i e -> unify (tagStmt i) (tagStmt e)
+    For _ _ _ s -> tagStmt s
+    While _ s -> tagStmt s
+    otherwise -> (Void, [])
+    
+unify :: (Type, [Type]) -> (Type, [Type]) -> (Type, [Type])
+unify (a, as) (b, bs) = if a == b
+    then (a, as ++ bs)
+    else error "Conflicting return types in function definition"
 
 extend :: TagDecl -> [TagDecl] -> [TagDecl]
-extend = undefined
+extend = (:)
 
-mkDecl :: TagE a -> Int -> TagDecl
-mkDecl = undefined
-defErr = error "Bogus default instance"
+search ::  Bind -> [TagDecl] -> Maybe TagDecl
+search b [] = Nothing
+search (Var t i) (x:xs) = case x of
+    Value i t e -> if i == i && t == t 
+        then Just (Value i t e)
+        else search (Var t i) xs
+    other -> search (Var t i) xs
+
+mkDecl :: Tag a => TagE a -> Int -> TagDecl
+mkDecl a i = Value i (tag a) (mkExpr a)
