@@ -1,4 +1,5 @@
-import Language
+module Swiz where
+import Vector
 class Swiz repr where
     x       :: Vec   v => repr (v a) -> repr a
     y       :: Vec2p v => repr (v a) -> repr a

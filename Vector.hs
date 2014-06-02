@@ -1,36 +1,41 @@
+{-# Language
+        DeriveFunctor,
+        PolyKinds #-}
+
 module Vector where
 
-data N = N2 
-       | N3 
-       | N4
-       deriving (Eq, Ord, Show)
+data V2 a = Vec2 a a        deriving (Eq, Functor, Show)
+data V3 a = Vec3 a a a      deriving (Eq, Functor, Show)
+data V4 a = Vec4 a a a a    deriving (Eq, Functor, Show)
 
-data VecN a = Vec2 a a
-            | Vec3 a a a
-            | Vec4 a a a a
-            deriving (Eq, Show)
+class Functor v => Vec v where
+    dim :: v a -> Int
+    toList :: v a -> [a]
 
-intN :: N -> Int
-intN n = case n of N2 -> 2; N3 -> 3; N4 -> 4
+class Vec2p v
+class Vec3p v
+class Vec4p v
 
-fromInt :: Int -> N
-fromInt n = case n of 2 -> N2; 3 -> N3; 4 -> N4;
-                      otherwise -> error "Invalid vector size"
+instance Vec V2 where
+    dim = const 2
+instance Vec V3 where
+    dim = const 3
+instance Vec V4 where
+    dim = const 4
 
-vecToList :: VecN a -> [a]
-vecToList v = case v of
-    Vec2 a b     -> [a,b]
-    Vec3 a b c   -> [a,b,c]
-    Vec4 a b c d -> [a,b,c,d]
+instance Vec2p V2
+instance Vec2p V3
+instance Vec2p V4
+instance Vec3p V3
+instance Vec3p V4
+instance Vec4p V4
 
-vecFromList :: [a] -> VecN a
-vecFromList xs = case xs of
-   [a,b]     ->  Vec2 a b        
-   [a,b,c]   ->  Vec3 a b c      
-   [a,b,c,d] ->  Vec4 a b c d    
+zipVec :: Vec v => (a -> b -> c) -> v a -> v b -> v c
+zipVec = undefined
 
-zipVec :: (a -> b -> c) -> VecN a -> VecN b -> VecN c
-zipVec op a b = vecFromList $ zipWith op (vecToList a) (vecToList b)
+getLength :: Vec v => v a -> Int
+getLength = undefined
 
-mapVec :: (a -> b) -> VecN a -> VecN b
-mapVec op = vecFromList . map op . vecToList
+
+getInitial :: Vec v => v a -> String
+getInitial = undefined
