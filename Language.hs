@@ -177,6 +177,9 @@ instance Stmt WriteProc where
     noOp = tell [NoOp]
 
 
+runProc :: [TagDecl] -> WriteProc () -> TagStmt
+runProc e w = Block $ snd $ evalRWS w e 0
+
 ------------------------------------------------------------------------------
 -- Decl instance : WriteProg
 
@@ -203,10 +206,8 @@ instance Decl WriteProg where
         local (extend p) $ tell [p]
         return (call (Var t i)) 
 
-------------------------------------------------------------------------------
--- Extracting complete programs
-runProc :: [TagDecl] -> WriteProc () -> TagStmt
-runProc e w = Block $ snd $ evalRWS w e 0
+runProg :: WriteProg a -> [TagDecl]
+runProg p = snd $ evalRWS p [] 0
 
 
 ------------------------------------------------------------------------------
