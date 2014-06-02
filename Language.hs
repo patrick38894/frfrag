@@ -61,23 +61,23 @@ class Abst abst where
     app     :: abst (a -> b) -> abst a -> abst b
 
 class Stmt stmt where
-    set     :: decl a -> stmt ()
-    ifElse  :: expr Bool -> stmt a -> stmt a -> stmt a
-    caseOf  :: [(Int, stmt a)] -> stmt a
+    set     :: Tag a => Bind -> TagE a -> stmt
+    ifElse  :: TagE Bool -> stmt -> stmt -> stmt
+    caseOf  :: [(Int, stmt)] -> stmt
     for     :: expr Int -> expr (Int -> Bool) -> expr (Int -> Int) 
-            -> stmt a -> stmt a
-    while   :: expr Bool -> stmt a -> stmt a
-    break   :: stmt ()
-    cont    :: stmt ()
-    ret     :: expr a -> stmt a 
-    halt    :: stmt ()
-    discard :: stmt ()
-    noOp    :: stmt ()
+            -> stmt -> stmt
+    while   :: expr Bool -> stmt -> stmt
+    break   :: stmt
+    cont    :: stmt
+    ret     :: expr a -> stmt
+    halt    :: stmt
+    discard :: stmt
+    noOp    :: stmt
 
 class Decl decl where
     uni     :: Tag a => Either Type (TagE a) -> decl (TagE a)
     value   :: Tag a => TagE a -> decl (TagE a)
-    proc    :: Tag a => WriteProc a -> decl ([Bind] -> TagE a)
+    proc    :: Tag a => WriteProc -> decl ([Bind] -> TagE a)
 
 
 ------------------------------------------------------------------------------
@@ -147,10 +147,15 @@ instance Refr TagE where
 
 ------------------------------------------------------------------------------
 
-type WriteProc = RWS [TagDecl] [TagStmt] Int
+type WriteProc = RWS [TagDecl] [TagStmt] Int ()
 instance Stmt WriteProc where
-    set = undefined
-    ifElse = undefined
+    set b e = do
+        d <- asks (search b)
+        let d' = mkDecl (value e)
+        case d of
+            Just x -> tell [Mutate d']
+            Nothing -> tell [DecVal d']
+    ifElse p i e = tell [IfElse (mkTag p) (mkStmt i) (mkStmt e)]
     caseOf = undefined
     for = undefined
     while = undefined
@@ -160,6 +165,9 @@ instance Stmt WriteProc where
     halt = undefined
     discard = undefined
     noOp = undefined
+
+
+
 
 ------------------------------------------------------------------------------
 -- Decl instance : WriteProg
@@ -213,12 +221,17 @@ mulTag x y = case (tag x, tag y) of
                     then Type a n o
                     else error "Incorrect matrix multiplication dimension"
 
-
-mkStmt :: Stmt stmt => stmt a -> TagStmt
+mkStmt :: Stmt stmt => stmt -> TagStmt
 mkStmt = undefined
 
-tagStmt :: (Tag a, Stmt stmt) => stmt a -> WriteProg (Type, [Type])
+tagStmt :: Stmt stmt => stmt -> WriteProg (Type, [Type])
 tagStmt = undefined
 
 mkArgs :: [Type] -> [Bind]
 mkArgs = undefined
+
+search ::  Bind -> [TagDecl] -> Maybe (TagDecl)
+search = undefined
+
+mkDecl :: WriteProg a -> TagDecl
+mkDecl = undefined
