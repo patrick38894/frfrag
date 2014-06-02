@@ -1,7 +1,9 @@
-{-# Language FlexibleInstances #-}
+{-# Language FlexibleInstances, OverlappingInstances #-}
 module Num where
 import Language
 import Control.Monad
+
+instance Num a => Num (Vec a)
 
 instance (Num a, Tag a, Expr repr, Show a) => Num (repr a) where
     (+) = addOp "+"

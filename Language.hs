@@ -78,6 +78,8 @@ data PrimType = Bool | Int | Float deriving (Eq, Show)
 data Type = Type PrimType Int Int deriving (Eq, Show)
 data Bind = Var Type Int deriving (Eq, Show)
 data Erased = forall a . Show a => Erased a
+data Vec a = Vec [a] deriving Show
+type Mat a = Vec (Vec a)
 deriving instance Show Erased
 
 class Tag a where tag :: a -> Type
@@ -85,8 +87,8 @@ class Tag a where tag :: a -> Type
 instance Tag Int where tag = const (Type Int 1 1)
 instance Tag Bool where tag = const (Type Bool 1 1)
 instance Tag Float where tag = const (Type Float 1 1)
-instance Tag a => Tag [a] where tag xs = let Type t m 1 = sameDim $ map tag xs
-                                         in Type t (length xs) m
+instance Tag a => Tag (Vec a) where tag (Vec xs) = let Type t m 1 = sameDim $ map tag xs
+                                                   in Type t (length xs) m
 
 ------------------------------------------------------------------------------
 instance Tag a => Tag (TagE a) where
