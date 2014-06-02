@@ -13,7 +13,36 @@ import Control.Monad.Writer
 import Control.Monad.RWS
 
 ------------------------------------------------------------------------------
--- Core Language as typeclasses
+-- Type representations
+data PrimType = Bool | Int | Float deriving (Eq, Show)
+data Type = Type PrimType Int Int deriving (Eq, Show)
+data Bind = Var Type Int deriving (Eq, Show)
+data Erased = forall a . (Show a, Tag a) => Erased a; deriving instance Show Erased
+
+class Tag a where tag :: a -> Type
+
+instance Tag Bool where tag = const (Type Bool 1 1)
+instance Tag Int where tag = const (Type Int 1 1)
+instance Tag Float where tag = const (Type Float 1 1)
+instance Tag Type where tag = id
+instance Tag Bind where tag (Var t i) = t
+instance Tag Erased where tag (Erased a) = tag a
+
+------------------------------------------------------------------------------
+-- Matrix numbers
+data Mat a = Mat [[a]] deriving Show
+instance Tag a => Tag (Mat a) where 
+ tag (Mat xs) = let (Type t 1 1) = tag (head (head xs))
+                    ls = map length xs
+                    n = length ls
+                    m = enforce ls
+                    enforce [x] = x
+                    enforce (x:y:xs) = if x == y 
+                        then enforce (y:xs)
+                        else error "Inconsistent vector or matrix dimension"
+                in if n == 1 then Type t m 1 else Type t n m
+------------------------------------------------------------------------------
+-- Type semantics
 class Expr expr where
     lit     :: (Show a, Tag a) => a -> expr a
     mulOp   :: Tag a => String -> expr a -> expr a -> expr a
@@ -21,9 +50,6 @@ class Expr expr where
     compOp  :: Tag a => String -> expr a -> expr a -> expr Bool
     prim    :: Tag a => String -> expr a -> expr b
     prim2   :: (Tag a, Tag b) => String -> expr a -> expr b -> expr c
-
-class RunExpr expr rexp where
-    run     :: Expr expr => expr a -> rexp
 
 class Refr refr where
     val     :: Tag a => Bind -> refr a
@@ -33,11 +59,6 @@ class Refr refr where
 class Abst abst where
     lam     :: Bind -> Bind -> abst (a -> b)
     app     :: abst (a -> b) -> abst a -> abst b
-
-class Decl decl where
-    uni     :: (Tag a, Refr refr) => Either Type (TagE a) -> decl (refr a)
-    value   :: Tag a => TagE a -> decl (TagE a)
-    proc    :: (Tag a, Stmt stmt) => stmt a -> decl ([Bind] -> TagE a)
 
 class Stmt stmt where
     set     :: decl a -> stmt ()
@@ -53,6 +74,12 @@ class Stmt stmt where
     discard :: stmt ()
     noOp    :: stmt ()
 
+class Decl decl where
+    uni     :: Tag a => Either Type (TagE a) -> decl (TagE a)
+    value   :: Tag a => TagE a -> decl (TagE a)
+    proc    :: Tag a => WriteProc a -> decl ([Bind] -> TagE a)
+
+
 ------------------------------------------------------------------------------
 -- Tagged data structures
 data TagExpr = Lit Type Erased
@@ -63,12 +90,8 @@ data TagExpr = Lit Type Erased
              | Prim2 String Type Type Type TagExpr TagExpr
              | Call Bind [Bind]
              | Val Bind
-             | Swiz Bind String
+             | Swiz Bind Type String
              deriving Show
-
-data TagDecl = Uni   Int Type (Maybe TagExpr)
-             | Value Int Type TagExpr
-             | Proc  Int Type [Type] TagStmt 
 
 data TagStmt = DecVal TagDecl
              | Mutate TagDecl
@@ -83,41 +106,33 @@ data TagStmt = DecVal TagDecl
              | Cont
              | NoOp
 
+data TagDecl = Uni   Int Type (Maybe TagExpr)
+             | Value Int Type TagExpr
+             | Proc  Int Type [Type] TagStmt 
+------------------------------------------------------------------------------
+-- Expr instance : TagE
+
+--instance (Expr expr, Tag a) => Tag (expr a) where
+--    tag e = error "Default instance for Tag (expr a) not actually implemented"
+
 newtype TagE a = TagE {mkTag :: TagExpr} deriving (Functor, Show)
-------------------------------------------------------------------------------
--- Type erasure and tagging
-data PrimType = Bool | Int | Float deriving (Eq, Show)
-data Type = Type PrimType Int Int deriving (Eq, Show)
-data Bind = Var Type Int deriving (Eq, Show)
-data Erased = forall a . Show a => Erased a
-data Vec a = Vec [a] deriving Show
-type Mat a = Vec (Vec a)
-deriving instance Show Erased
-
-class Tag a where tag :: a -> Type
-
-instance Tag Int where tag = const (Type Int 1 1)
-instance Tag Bool where tag = const (Type Bool 1 1)
-instance Tag Float where tag = const (Type Float 1 1)
-instance Tag a => Tag (Vec a) where tag (Vec xs) = let Type t m 1 = sameDim $ map tag xs
-                                                   in Type t (length xs) m
-
-instance (Expr expr, Tag a) => Tag (expr a) where
-    tag e = error "Default instance for Tag (expr a) not actually implemented"
-
-------------------------------------------------------------------------------
 instance Tag a => Tag (TagE a) where
     tag (TagE t) = case t of
         Lit t _ -> t
         MulOp _ t _ _ -> t
         AddOp _ t _ _ -> t
         CompOp _ t _ _ -> t
-    -- TODO MISSING INSTANCES
+        Prim _ t _ _ -> t
+        Prim2 _ t _ _ _ _ -> t
+        Val b -> tag b
+        Call f xs -> tag f
+        Swiz b t s -> t
 
 instance Expr TagE where
     lit a       = TagE $ Lit (tag a) (Erased a)
-    mulOp s x y = TagE $ MulOp s (case s of "*" -> mulTag x y
-                                            o -> opTag x y) (mkTag x) (mkTag y) 
+    mulOp s x y = TagE $ MulOp s (case s of 
+        "*" -> mulTag x y
+        o -> opTag x y) (mkTag x) (mkTag y) 
     addOp s x y = TagE $ AddOp s (opTag x y) (mkTag x) (mkTag y)
     compOp s x y = TagE $ CompOp s (opTag x y) (mkTag x) (mkTag y)
     prim s x = TagE $ Prim s (primTag s $ tag x) (tag x) (mkTag x)
@@ -126,10 +141,29 @@ instance Expr TagE where
     
 instance Refr TagE where
     val b = TagE $ Val b
-    call f xs  = undefined -- TODO
-    swiz b s = undefined -- TODO
+    call f xs  = TagE $ Call f xs
+    swiz b s = TagE $ Swiz b t s
+        where t = case b of Var (Type t n 1) i -> Type t (length s) 1
 
 ------------------------------------------------------------------------------
+
+type WriteProc = RWS [TagDecl] [TagStmt] Int
+instance Stmt WriteProc where
+    set = undefined
+    ifElse = undefined
+    caseOf = undefined
+    for = undefined
+    while = undefined
+    ret = undefined
+    break = undefined
+    cont = undefined
+    halt = undefined
+    discard = undefined
+    noOp = undefined
+
+------------------------------------------------------------------------------
+-- Decl instance : WriteProg
+
 type WriteProg = StateT Int (Writer [TagDecl])
 instance Decl WriteProg where
     uni e = do
@@ -149,31 +183,12 @@ instance Decl WriteProg where
         tell [Proc i t ts (mkStmt s)]
         return (call (Var t i)) 
 
-
-tagStmt :: (Tag a, Stmt stmt) => stmt a -> WriteProg (Type, [Type])
-tagStmt = undefined
-
-mkArgs :: [Type] -> [Bind]
-mkArgs = undefined
-------------------------------------------------------------------------------
-type WriteProc = RWS [TagDecl] [TagStmt] Int
-instance Stmt WriteProc
-
-mkStmt :: Stmt stmt => stmt a -> TagStmt
-mkStmt = undefined
-
 ------------------------------------------------------------------------------
 -- Misc functions
 
 nexti       :: MonadState Int m => m Int
 nexti       = get >>= \i -> put (i + 1) >> return i
 
-sameDim :: (Eq a, Show a) => [a] -> a
-sameDim [x] = x
-sameDim (x:y:xs) = if x == y 
-    then sameDim (y:xs) 
-    else error $ concat ["Inconsistent vector or matrix dimension (",
-                          show x, ") /= (", show y, ")"]
 primTag :: String -> Type -> Type
 primTag = undefined
 
@@ -186,7 +201,24 @@ opTag :: Expr expr => expr a -> expr a -> Type
 opTag = undefined
 
 -- For multiplication, matrices need to be nxm x mxo = nxo
-mulTag :: Expr expr => expr a -> expr a -> Type
-mulTag = undefined
+mulTag :: Tag a => TagE a -> TagE a -> Type
+mulTag x y = case (tag x, tag y) of
+    (Type a n m, Type _ m' o) -> case m of
+        1 -> Type a m' o
+        k -> case m' of
+            1 -> if o == k || o == 1 
+                    then Type a k 1
+                    else error "Incorrect vector multiplication dimension"
+            j -> if j == k 
+                    then Type a n o
+                    else error "Incorrect matrix multiplication dimension"
 
 
+mkStmt :: Stmt stmt => stmt a -> TagStmt
+mkStmt = undefined
+
+tagStmt :: (Tag a, Stmt stmt) => stmt a -> WriteProg (Type, [Type])
+tagStmt = undefined
+
+mkArgs :: [Type] -> [Bind]
+mkArgs = undefined
