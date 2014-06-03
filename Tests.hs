@@ -65,4 +65,4 @@ mandelbrot c1 c2 =   do
         ret (val s)
 
     fragMain $ do
-        setColor (mandel (scale (offset $ val FragCoord)))
+        setColor (colors (mandel (scale (offset $ val FragCoord))))

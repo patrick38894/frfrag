@@ -172,14 +172,14 @@ instance Stmt WriteProc where
         d <- asks (search b)
         let x = mkExpr e
         case d of
-            Just y -> tell [Mutate b x]
+            Just y -> tell [Mutate b x] >> return b
             Nothing -> case b of 
-                FragColor -> tell [Mutate FragColor x]
-                other -> do 
+                FragColor -> tell [Mutate FragColor x] >> return b
+                other -> do
                     i <- nexti
                     let d' = mkDecl e i
-                    local (extend d') $ tell [DecVal i (tag e) x]
-        return b
+                    local (extend d')
+                        (tell [DecVal i (tag e) x] >> return b)
     ifElse p i e = do
         u <- ask
         n1 <- nexti
@@ -223,30 +223,26 @@ instance Decl WriteProg where
                 Left t -> (t, Nothing)
                 Right r -> (tag r, Just r)
             u = Uni i t (fmap mkExpr x)
-        local (extend u) $ tell [u]
-        return (Var t i)
+        local (extend u) (tell [u] >> return (Var t i))
     valu e = let t = tag e in do
         i <- nexti
         let v = Value i t (mkExpr e)
-        local (extend v) $ tell [v]
-        return (Var t i)
+        local (extend v) (tell [v] >> return (Var t i))
     proc s = do
         i1 <- nexti
         e <- ask
-        let (st, i2) = runProc s e (i1 + 1)
+        let (st, i2) = runProc s e i1
             p = Proc i1 t ts st
             (t, ts) = tagStmt st
         put i2
-        local (extend p) $ tell [p]
-        return (call (Var t i1))
+        local (extend p) (tell [p] >> return (call (Var t i1)))
     fragMain s = do
         i1 <- nexti
         e <- ask
         let (st, i2) = runProc s e i1
             m = Main st
         put i2
-        local (extend m) $ tell [m]
-        return ()
+        local (extend m) $ (tell [m] >> return ())
 
 ------------------------------------------------------------------------------
 -- Synonyms
@@ -289,7 +285,6 @@ bind m = do
             i <- nexti
             set (Var (tag x) i) e
 
-
 mkBinding :: Type -> WriteProc Bind
 mkBinding t = do
     i <- nexti
@@ -308,7 +303,7 @@ setColor m = set FragColor m >> return ()
 ------------------------------------------------------------------------------
 -- Misc functions
 nexti       :: MonadState Int m => m Int
-nexti       = get >>= \i -> put (i + 1) >> return i
+nexti       = get >>= \i -> put (i + 1) >> return (i + 1)
 
 primTag :: String -> Type -> Type
 primTag s t = t -- TODO check if this is actually right
