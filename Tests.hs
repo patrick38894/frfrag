@@ -1,8 +1,35 @@
 import Language
 import Num
 
-calcMandelbrot :: TagE (Mat Float) -> TagE Int -> TagE Float -> WriteProc ()
-calcMandelbrot o i s = do
+------------------------------------------------------------------------
+-- Basic
+
+emptyFrag :: WriteProg ()
+emptyFrag = fragMain noOp
+
+discardFrag :: WriteProg ()
+discardFrag = fragMain discard
+
+haltFrag :: WriteProg ()
+haltFrag = fragMain halt
+
+redFrag :: WriteProg ()
+redFrag = fragMain (setColor $ mat [[1,0,0,0]])
+
+gradFrag :: WriteProg ()
+gradFrag = fragMain (setColor (val FragCoord ./ (1000 :: TagE Float)))
+
+sinFrag :: WriteProg ()
+sinFrag = fragMain (setColor (sin (val FragCoord ./ float 1000)))
+
+passthrough :: WriteProg ()
+passthrough = fragMain (setColor (val FragColor))
+
+brighten :: WriteProg ()
+brighten = fragMain (setColor (val FragColor .* float 2))
+
+calcMandelbrot :: WriteProc ()
+calcMandelbrot = do
         p            <- param (vec_t 2)
         iter         <- param int_t
         step         <- param float_t
@@ -17,9 +44,9 @@ mandelbrot c1 c2 =   do
     zoom    <- udef $ vec [4,4]
     center  <- udef $ vec [0,0]
     screen  <- udef $ vec [1280, 960]
-    step    <- udef $ float 0.01
+    step    <- uni $ float 0.01
     thresh  <- udef $ float 8
-    iter    <- udef $ int 1000
+    iter    <- uni $ int 1000
     offset  <- proc $ do
         p   <- arg $ vec_t 2
         ret   (p .- screen ./ float 2)
@@ -29,5 +56,7 @@ mandelbrot c1 c2 =   do
     colors  <- proc $ do
         x   <- bind $ arg float_t
         ret   (colormap c1 c2 [x])
-    fragMain $ do undefined
-    -- setColor (calcMandelbrot (offset [FragCoord]) iter step)
+    mandel  <- proc calcMandelbrot
+    fragMain $ do
+        -- comp <- bind $ offset [FragCoord]
+        --setColor (mandel [offset [FragCoord]))

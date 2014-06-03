@@ -15,16 +15,20 @@ import Control.Monad.RWS
 data PrimType = Bool | Int | Float deriving (Eq, Show)
 data Type = Type PrimType Int Int | Void deriving (Eq, Show)
 data Bind = Var Type Int | FragCoord | FragColor deriving (Eq, Show)
-data Erased = forall a . (Show a, Tag a) => Erased a; deriving instance Show Erased
-data ErasedF expr = forall a . ErasedF (expr a)
+data Tagged = forall a . (Show a, Tag a) => Tagged a; deriving instance Show Tagged
+data TaggedF expr = forall a . TaggedF (expr a)
 
 class Tag a where tag :: a -> Type
 instance Tag Bool where tag = const (Type Bool 1 1)
 instance Tag Int where tag = const (Type Int 1 1)
 instance Tag Float where tag = const (Type Float 1 1)
 instance Tag Type where tag = id
-instance Tag Bind where tag (Var t i) = t
-instance Tag Erased where tag (Erased a) = tag a
+instance Tag Bind where 
+    tag b = case b of 
+        Var t i -> t
+        FragCoord -> Type Float 4 1
+        FragColor -> Type Float 4 1
+instance Tag Tagged where tag (Tagged a) = tag a
 
 -----------------------------------------------------------------------------
 -- Matrices
@@ -79,7 +83,7 @@ class Decl decl where
 
 ------------------------------------------------------------------------------
 -- Tagged data structures
-data TagExpr = Lit Type Erased
+data TagExpr = Lit Type Tagged
              | GMat Type (Mat TagExpr)
              | MulOp String Type TagExpr TagExpr
              | AddOp String Type TagExpr TagExpr
@@ -93,7 +97,7 @@ data TagExpr = Lit Type Erased
 
 data TagStmt = Param Bind
              | DecVal TagDecl
-             | Mutate TagDecl
+             | Mutate Bind TagExpr
              | Block [TagStmt]
              | IfElse TagExpr TagStmt TagStmt
              | For TagDecl TagExpr TagExpr TagStmt
@@ -128,9 +132,10 @@ instance Tag TagExpr where
         Val b               -> tag b
         Call f xs           -> tag f
         Swiz b t s          -> t
+        GMat t _            -> t 
 
 instance Expr TagE where
-    lit a           = TagE $ Lit (tag a) (Erased a)
+    lit a           = TagE $ Lit (tag a) (Tagged a)
     matrix xs       = TagE $ GMat (tag xs) (fmap mkExpr xs) 
     mulOp s x y     = TagE $ MulOp s (case s of 
         "*"         -> mulTag x y
@@ -161,10 +166,12 @@ instance Stmt WriteProc where
     set b e = do
         i <- nexti
         d <- asks (search b)
-        let d' = mkDecl e i
         case d of
-            Just x -> tell [Mutate d']
-            Nothing -> local (extend d') $ tell [DecVal d']
+            Just x -> tell [Mutate b (mkExpr e)]
+            Nothing -> case b of 
+                FragColor -> tell [Mutate FragColor (mkExpr e)]
+                other -> let d' = mkDecl e i
+                        in local (extend d') $ tell [DecVal d']
         return b
     ifElse p i e = do
         u <- ask
@@ -263,7 +270,10 @@ bind m = do
         x -> do
             i <- nexti
             set (Var (tag x) i) e
-        
+
+
+setColor :: TagE (Mat Float) -> WriteProc ()
+setColor m = set FragColor m >> return ()
 
 ------------------------------------------------------------------------------
 -- Misc functions
@@ -305,7 +315,8 @@ unify (a, as) (b, bs)
     | a == b = (a, as ++ bs)
     | a == Void = (b, as ++ bs)
     | b == Void = (a, as ++ bs)
-    | otherwise = error "Conflicting return types in function definition"
+    | otherwise = 
+        error "Conflicting return types in function definition"
 
 extend :: TagDecl -> [TagDecl] -> [TagDecl]
 extend = (:)

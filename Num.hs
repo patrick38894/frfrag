@@ -8,9 +8,36 @@ import Control.Monad
 (.+) = addOp "+"
 (.*) = mulOp "*"
 (./) = mulOp "/"
+matriculate x = Mat [[x]]
 
 
-instance Num a => Num (Mat a)
+instance (Num a, Show a, Tag a) => Num (TagE (Mat a)) where
+    (+) = (.+)
+    (-) = (.-)
+    (*) = (.*)
+    abs = prim "abs"
+    signum = prim "sign"
+    fromInteger = matrix . matriculate . fromInteger 
+
+instance Fractional (TagE (Mat Float)) where
+    fromRational = lit . matriculate . fromRational
+    (/) = (./)
+
+instance Floating (TagE (Mat Float)) where
+    pi = lit $ matriculate pi
+    sin = prim "sin" 
+    cos = prim "cos" 
+    tan = prim "tan" 
+    exp = prim "exp" 
+    log = prim "log" 
+    asin = prim "asin" 
+    acos = prim "acos" 
+    atan = prim "atan" 
+    sinh = prim "sinh" 
+    cosh = prim "cosh" 
+    asinh = prim "asinh" 
+    acosh = prim "acosh" 
+    atanh = prim "atanh"
 
 instance (Num a, Tag a, Expr repr, Show a) => Num (repr a) where
     (+) = (.+)
@@ -20,11 +47,11 @@ instance (Num a, Tag a, Expr repr, Show a) => Num (repr a) where
     signum = prim "sign"
     fromInteger = lit . fromInteger 
 
-instance (Fractional a, Tag a, Expr repr, Show a) => Fractional (repr a) where
+instance Expr repr => Fractional (repr Float) where
     fromRational = lit . fromRational
     (/) = (./)
 
-instance (Floating a, Tag a, Expr repr, Show a) => Floating (repr a) where
+instance Expr repr => Floating (repr Float) where
     pi = lit pi
     sin = prim "sin" 
     cos = prim "cos" 

@@ -1,13 +1,11 @@
 TODO
 
-0) Write tests:
-    Empty shader
-    Red shader
-    Position gradient shader
-    Basic math expression shaders
-    Colormap mapped over a transformation of x y position
-    Static mandelbrot
-    
+
+-1) Make functions unary (for now)
+    * Consider solving this problem just by using structs or currying
+   
+0) Fix mandelbrot.
+
 1) Write pretty printer
 
 2) Write comparison instances
@@ -33,7 +31,8 @@ TODO
      Fire
      Starfield
 
-8) Add combinators, e.g. "Warp" - change underlying glFragcoord in all occurrances,
+8) Add combinators, e.g. lambda, application, 
+    "Warp" - change underlying glFragcoord in all occurrances,
     "Tint" change color in all occurances
 
 9) Add Stream functions for more abstract loops
