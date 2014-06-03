@@ -91,7 +91,7 @@ data TagExpr = Lit Type Tagged
              | GMat Type (Mat TagExpr)
              | MulOp String Type TagExpr TagExpr
              | AddOp String Type TagExpr TagExpr
-             | CompOp String Type TagExpr TagExpr
+             | CompOp String TagExpr TagExpr
              | Prim String Type Type TagExpr
              | Prim2 String Type Type Type TagExpr TagExpr
              | Call Bind TagExpr
@@ -99,11 +99,11 @@ data TagExpr = Lit Type Tagged
              | Swiz Bind Type String
 
 data TagStmt = Param Bind
-             | DecVal TagDecl
+             | DecVal Int Type TagExpr
              | Mutate Bind TagExpr
              | Block [TagStmt]
              | IfElse TagExpr TagStmt TagStmt
-             | For TagDecl TagExpr TagExpr TagStmt
+             | For Bind TagExpr TagExpr TagExpr TagStmt
              | While TagExpr TagStmt
              | Ret TagExpr
              | Discard
@@ -114,7 +114,7 @@ data TagStmt = Param Bind
 
 data TagDecl = Uni   Int Type (Maybe TagExpr)
              | Value Int Type TagExpr
-             | Proc  Int Type [Type] TagStmt 
+             | Proc  Int Type [Bind] TagStmt 
              | Main TagStmt
 ------------------------------------------------------------------------------
 -- Expr instance : TagE
@@ -127,7 +127,7 @@ instance Tag TagExpr where
         Lit t _             -> t
         MulOp _ t _ _       -> t
         AddOp _ t _ _       -> t
-        CompOp _ t _ _      -> t
+        CompOp _ _ _        -> Type Bool 1 1
         Prim _ t _ _        -> t
         Prim2 _ t _ _ _ _   -> t
         Val b               -> tag b
@@ -142,7 +142,7 @@ instance Expr TagE where
         "*"         -> mulTag x y
         o           -> opTag x y) (mkExpr x) (mkExpr y) 
     addOp s x y     = TagE $ AddOp s (opTag x y) (mkExpr x) (mkExpr y)
-    compOp s x y    = TagE $ CompOp s (opTag x y) (mkExpr x) (mkExpr y)
+    compOp s x y    = TagE $ CompOp s (mkExpr x) (mkExpr y)
     prim s x        = TagE $ Prim s (primTag s $ tag x) (tag x) (mkExpr x)
     prim2 s x y     = TagE $ Prim2 s (prim2Tag s (tag x) (tag y)) 
                         (tag x) (tag y) (mkExpr x) (mkExpr y)
@@ -166,12 +166,13 @@ instance Stmt WriteProc where
     set b e = do
         i <- nexti
         d <- asks (search b)
+        let x = mkExpr e
         case d of
-            Just x -> tell [Mutate b (mkExpr e)]
+            Just y -> tell [Mutate b x]
             Nothing -> case b of 
-                FragColor -> tell [Mutate FragColor (mkExpr e)]
+                FragColor -> tell [Mutate FragColor x]
                 other -> let d' = mkDecl e i
-                        in local (extend d') $ tell [DecVal d']
+                        in local (extend d') $ tell [DecVal i (tag e) x]
         return b
     ifElse p i e = do
         u <- ask
@@ -180,9 +181,9 @@ instance Stmt WriteProc where
     for s p t d = do
         i <- nexti
         u <- ask
-        let v = mkDecl s i
-        tell [For v (mkExpr (p $ val (Var (Type Int 1 1) i))) 
-                    (mkExpr (t $ val (Var (Type Int 1 1) i))) (runProc d u i)]
+        let iv = val (Var (Type Int 1 1) i)
+        tell [For (Var (tag s) i) (mkExpr s) (mkExpr (p $ iv)) 
+                    (mkExpr (t $ iv)) (runProc d u i)]
     while e s = do 
         u <- ask
         i <- get
@@ -230,6 +231,7 @@ instance Decl WriteProg where
             m = Main st
         local (extend m) $ tell [m]
         return ()
+
 ------------------------------------------------------------------------------
 -- Synonyms
 int_t = Type Int 1 1
@@ -299,17 +301,17 @@ mulTag x y = case (tag x, tag y) of
     | m' == m -> Type a n o 
     | otherwise -> error "Incorrect vector mult. dimension"
 
-tagStmt :: TagStmt -> (Type, [Type])
+tagStmt :: TagStmt -> (Type, [Bind])
 tagStmt s = case s of
-    Param t -> (Void, [tag t])
+    Param t -> (Void, [t])
     Ret a -> (tag a, [])
     IfElse _ i e -> unify (tagStmt i) (tagStmt e)
-    For _ _ _ s -> tagStmt s
+    For _ _ _ _ s -> tagStmt s
     While _ s -> tagStmt s
     Block s -> foldr1 unify (map tagStmt s)    
     otherwise -> (Void, [])
     
-unify :: (Type, [Type]) -> (Type, [Type]) -> (Type, [Type])
+unify :: (Type, [Bind]) -> (Type, [Bind]) -> (Type, [Bind])
 unify (a, as) (b, bs)
     | a == b = (a, as ++ bs)
     | a == Void = (b, as ++ bs)
@@ -330,3 +332,6 @@ search (Var t i) (x:xs) = case x of
 
 mkDecl :: TagE a -> Int -> TagDecl
 mkDecl a i = Value i (tag a) (mkExpr a)
+
+mkArgs :: [Type] -> [Bind]
+mkArgs = undefined
