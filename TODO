@@ -1,6 +1,6 @@
 TODO
 
-1) Write tests:
+0) Write tests:
     Empty shader
     Red shader
     Position gradient shader
@@ -8,7 +8,9 @@ TODO
     Colormap mapped over a transformation of x y position
     Static mandelbrot
     
-2) Write pretty printer
+1) Write pretty printer
+
+2) Write comparison instances
 
 3) Add GLFW test setup
 4) Add Pipes control of uniforms
