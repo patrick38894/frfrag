@@ -8,7 +8,8 @@
              StandaloneDeriving #-}
 
 module Language where
-import Control.Monad.RWS
+import Control.Monad.State
+import Control.Arrow(first)
 
 ------------------------------------------------------------------------------
 -- Type representations
@@ -157,10 +158,29 @@ instance Expr TagE where
 
 ------------------------------------------------------------------------------
 
-type WriteProc = RWS [TagDecl] [TagStmt] Int
-runProc :: WriteProc () -> [TagDecl] -> Int -> (TagStmt, Int)
-runProc w e i = let (st,wr) = execRWS w e i 
-                 in (Block wr, st)
+type WriteProc = State (([TagDecl], [TagStmt]), Int)
+runProc :: WriteProc a -> [TagDecl] -> Int -> (TagStmt, Int)
+runProc w e i = let ((env,stmts), i) = execState w ((e,[]), i) 
+                 in (Block stmts, i)
+
+
+tell :: [TagStmt] -> WriteProc ()
+tell d = modify (\((e,s),i) -> ((e,s++d),i))
+
+localenvf :: ([TagDecl] -> a) -> WriteProc a
+localenv = localenvf id
+
+localenvf f = fmap (f . fst . fst) get
+
+localupd :: ([TagDecl] -> [TagDecl]) -> WriteProc ()
+localupd f = modify (first (first f))
+
+envf :: ([TagDecl] -> a) -> WriteProg a
+envf f = fmap (f . fst) get
+env = envf id
+
+upd :: ([TagDecl] -> [TagDecl]) -> WriteProg ()
+upd f = modify (first f)
 
 instance Stmt WriteProc where
     param t = do
@@ -169,7 +189,7 @@ instance Stmt WriteProc where
         tell [Param b]
         return b
     set b e = do
-        d <- asks (search b)
+        d <- localenvf (search b)
         let x = mkExpr e
         case d of
             Just y -> tell [Mutate b x] >> return b
@@ -178,30 +198,31 @@ instance Stmt WriteProc where
                 other -> do
                     i <- nexti
                     let d' = mkDecl e i
-                    local (extend d')
-                        (tell [DecVal i (tag e) x] >> return b)
+                    localupd (extend d')
+                    tell [DecVal i (tag e) x]
+                    return b
     ifElse p i e = do
-        u <- ask
+        u <- localenv
         n1 <- nexti
         let (ifCase, n2) = runProc i u n1
             (elseCase, n3) = runProc e u n2
-        put n3
+        puti n3
         tell [IfElse (mkExpr p) ifCase elseCase]
     for s p t d = do
         i <- nexti
         i2 <- nexti
-        u <- ask
+        u <- localenv
         let ib = Var (Type Int 1 1) i
             iv = val ib
             (act, i3) = runProc d u i2
-        put i3
+        puti i3
         tell [For ib (mkExpr s) (mkExpr (p $ iv)) 
                     (mkExpr (t $ iv)) act]
     while e s = do 
-        u <- ask
+        u <- localenv
         i <- nexti
         let (act, i2) = runProc s u i
-        put i2
+        puti i2
         tell [While (mkExpr e) act]
     ret r = tell [Ret (mkExpr r)]
     brk = tell [Break]
@@ -213,9 +234,9 @@ instance Stmt WriteProc where
 ------------------------------------------------------------------------------
 -- Decl instance : WriteProg
 
-type WriteProg = RWS [TagDecl] [TagDecl] Int
+type WriteProg = State ([TagDecl], Int)
 runProg :: WriteProg a -> [TagDecl]
-runProg p = snd $ evalRWS p [] 0
+runProg p = fst $ execState p ([], 0)
 instance Decl WriteProg where
     uni e = do
         i <- nexti
@@ -223,26 +244,29 @@ instance Decl WriteProg where
                 Left t -> (t, Nothing)
                 Right r -> (tag r, Just r)
             u = Uni i t (fmap mkExpr x)
-        local (extend u) (tell [u] >> return (Var t i))
+        upd (extend u)
+        return (Var t i)
     valu e = let t = tag e in do
         i <- nexti
         let v = Value i t (mkExpr e)
-        local (extend v) (tell [v] >> return (Var t i))
+        upd (extend v) 
+        return (Var t i)
     proc s = do
         i1 <- nexti
-        e <- ask
+        e <- env
         let (st, i2) = runProc s e i1
             p = Proc i1 t ts st
             (t, ts) = tagStmt st
-        put i2
-        local (extend p) (tell [p] >> return (call (Var t i1)))
+        puti i2
+        upd (extend p) 
+        return (call (Var t i1))
     fragMain s = do
         i1 <- nexti
-        e <- ask
+        e <- env
         let (st, i2) = runProc s e i1
             m = Main st
-        put i2
-        local (extend m) $ (tell [m] >> return ())
+        puti i2
+        upd (extend m)
 
 ------------------------------------------------------------------------------
 -- Synonyms
@@ -301,9 +325,12 @@ setColor :: TagE (Mat Float) -> WriteProc ()
 setColor m = set FragColor m >> return ()
 
 ------------------------------------------------------------------------------
--- Misc functions
-nexti       :: MonadState Int m => m Int
-nexti       = get >>= \i -> put (i + 1) >> return (i + 1)
+-- Misc internal functions
+nexti       :: MonadState (a,Int) m => m Int
+nexti       = get >>= (\(_,i) -> puti (i+1) >> return (i + 1))
+
+puti        :: MonadState (a,Int) m => Int -> m ()
+puti i      = get >>= (\(a,_) -> put (a,i))
 
 primTag :: String -> Type -> Type
 primTag s t = t -- TODO check if this is actually right
@@ -353,6 +380,7 @@ search (Var t i) (x:xs) = case x of
         then Just (Value i t e)
         else search (Var t i) xs
     other -> search (Var t i) xs
+search b xs = Nothing
 
 mkDecl :: TagE a -> Int -> TagDecl
 mkDecl a i = Value i (tag a) (mkExpr a)
