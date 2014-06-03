@@ -1,5 +1,6 @@
 import Language
 import Num
+import Printer
 
 ------------------------------------------------------------------------
 -- Basic
@@ -30,8 +31,6 @@ brighten = fragMain (setColor (val FragColor .* float 2))
 
 colormap :: Float -> Float -> [Bind] -> TagE (Mat Float)
 colormap c1 c2 [x] = vec [val x * lit c1, 1 - val x * lit c2, 0.5, 1]
-
-
 
 mandelbrot :: Float -> Float -> WriteProg ()
 mandelbrot c1 c2 =   do

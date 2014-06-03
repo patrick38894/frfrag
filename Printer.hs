@@ -4,6 +4,10 @@ import Language
 import Text.PrettyPrint.HughesPJ hiding (int, float)
 import qualified Text.PrettyPrint.HughesPJ as PP
 
+instance Show (WriteProg()) where show = render . vcat . map ppdecl . runProg
+instance Show TagDecl where show = render . ppdecl
+
+
 class PPNative a where pp :: a -> Doc
 instance PPNative Int where pp = PP.int
 instance PPNative Bool where pp x = text $ if x then "true" else "false"
@@ -23,7 +27,10 @@ ppbinding :: Bind -> Doc
 ppbinding (Var t i) = pptag t <+> ppname (Var t i)
 
 ppname :: Bind -> Doc
-ppname (Var t i) = text "var" <> PP.int i
+ppname n = case n of
+    Var t i -> text "var" <> PP.int i
+    FragColor -> text "gl_FragColor"
+    FragCoord -> text "gl_FragCoord"
 
 ppassign :: Bind -> TagExpr -> Doc
 ppassign b e = ppbinding b <+> equals <+> ppexpr e <> semi
@@ -66,7 +73,7 @@ ppstmt s = case s of
     Param _ -> empty
     DecVal i t e -> ppassign (Var t i) e <> semi
     Mutate b e -> ppname b <+> equals <+> ppexpr e <> semi
-    Block s -> braceblock $ commasep $ map ppstmt s
+    Block s -> commasep $ map ppstmt s
     IfElse p i e -> text "if" <> parens (ppexpr p)
                     <+> braceblock (ppstmt i) 
                     <+> text "else" <+> braceblock (ppstmt e) 
@@ -89,6 +96,6 @@ ppdecl d = case d of
         Nothing -> ppbinding v <> semi
         Just x -> ppassign (Var t i) x
     Value i t e -> ppassign (Var t i) e
-    Proc i t ts s -> ppname (Var t i) <> parens (ppargs ts) <+> braceblock (ppstmt s)
-    Main s -> text "main()" <+> braceblock (ppstmt s)
+    Proc i t ts s -> ppbinding (Var t i) <> parens (ppargs ts) <+> braceblock (ppstmt s)
+    Main s -> text "void main()" <+> braceblock (ppstmt s)
 

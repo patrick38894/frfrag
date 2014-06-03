@@ -82,7 +82,7 @@ class Stmt stmt where
 class Decl decl where
     uni     :: Either Type (TagE a) -> decl Bind
     valu    :: TagE a -> decl Bind
-    proc    :: WriteProc () -> decl (TagE a -> TagE a)
+    proc    :: WriteProc () -> decl (TagE a -> TagE b)
     fragMain:: WriteProc () -> decl ()
 
 ------------------------------------------------------------------------------
@@ -222,7 +222,7 @@ instance Decl WriteProg where
             (t, ts) = tagStmt st
             p = Proc i t ts st
         local (extend p) $ tell [p]
-        i' <- get
+        i' <- nexti
         return (call (Var t i'))
     fragMain s = do
         i <- get
@@ -333,5 +333,3 @@ search (Var t i) (x:xs) = case x of
 mkDecl :: TagE a -> Int -> TagDecl
 mkDecl a i = Value i (tag a) (mkExpr a)
 
-mkArgs :: [Type] -> [Bind]
-mkArgs = undefined
