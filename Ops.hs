@@ -1,14 +1,43 @@
 {-# Language FlexibleInstances, OverlappingInstances #-}
-module Num where
+module Ops where
 import Language
 import Control.Monad
+
+
+infixr 7 .@
+infixl 6 .*
+infixl 6 ./
+infixl 5 .+
+infixl 5 .-
+infixr 4 .<
+infixr 4 .>
+infixr 4 .<=
+infixr 4 .>=
+infixr 3 .==
+infixr 2 .&&
+infixr 1 .||
+
+(.@) :: Expr expr => expr (Mat a) -> String -> expr b
+(.@) = swiz
+
+
+(.<), (.>), (.>=), (.<=), (.==), (.&&), (.||) :: Expr expr => expr a -> expr a -> expr Bool
+(.<) = compOp "<"
+(.>) = compOp ">"
+(.<=) = compOp "<="
+(.>=) = compOp ">="
+(.==) = compOp "=="
+(.&&) = compOp "&&"
+(.||) = compOp "||"
 
 (.-), (./), (.+), (.*) :: Expr expr => expr a -> expr b -> expr c
 (.-) = addOp "-"
 (.+) = addOp "+"
 (.*) = mulOp "*"
 (./) = mulOp "/"
-matriculate x = Mat [[x]]
+
+dot :: Expr expr => expr (Mat Float) -> expr (Mat Float) -> expr Float
+dot = prim2 "dot"
 
 
 instance (Num a, Show a, Tag a) => Num (TagE (Mat a)) where
@@ -66,3 +95,5 @@ instance Expr repr => Floating (repr Float) where
     asinh = prim "asinh" 
     acosh = prim "acosh" 
     atanh = prim "atanh"
+
+matriculate x = Mat [[x]]

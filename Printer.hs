@@ -32,11 +32,19 @@ ppname n = case n of
     FragColor -> text "gl_FragColor"
     FragCoord -> text "gl_FragCoord"
 
-ppassign :: Bind -> TagExpr -> Doc
-ppassign b e = ppbinding b <+> equals <+> ppexpr e <> semi
+ppassign, ppdeclare :: Bind -> TagExpr -> Doc
+ppassign b e = ppname b <+> equals <+> ppexpr e
+ppdeclare b e = ppbinding b <+> equals <+> ppexpr e
 
 ppargs :: [Bind] -> Doc
 ppargs = commasep . map ppbinding
+
+ppelse :: TagStmt -> Doc
+ppelse e = case e of 
+    Block [NoOp] -> empty
+    Block [] -> empty
+    NoOp -> empty
+    x -> text " else" $+$ ppstmt e
 
 pptag :: Type -> Doc
 pptag t = case t of
@@ -64,24 +72,25 @@ ppexpr e = case e of
     CompOp s x y -> ppexpr x <+> text s <+> ppexpr y
     Prim s _ _ x -> text s <> parens (ppexpr x) 
     Prim2 s _ _ _ x y -> text s <> parens (ppexpr x <> comma <+> ppexpr y)
-    Call b x -> undefined
+    Call b x -> ppname b <> parens (ppexpr x)
     Val b -> ppname b
-    Swiz b _ s -> ppname b <> text "." <> text s
+    Swiz b _ s -> ppexpr b <> text "." <> text s
+    IfExpr _ p i e -> sep [ppexpr p <> text "?", parens (ppexpr i), 
+                          text ":", parens (ppexpr e)]
 
 ppstmt :: TagStmt -> Doc
 ppstmt s = case s of
     Param _ -> empty
-    DecVal i t e -> ppassign (Var t i) e <> semi
+    DecVal i t e -> ppdeclare (Var t i) e <> semi
     Mutate b e -> ppname b <+> equals <+> ppexpr e <> semi
-    Block s -> commasep $ map ppstmt s
-    IfElse p i e -> text "if" <> parens (ppexpr p)
-                    <+> braceblock (ppstmt i) 
-                    <+> text "else" <+> braceblock (ppstmt e) 
+    Block s -> vcat $ map ppstmt s
+    IfElse p i e -> sep [text "if" <> parens (ppexpr p), ppstmt i]
+                    <> ppelse e
     For b i p t s  -> text "for"
-                    <> (parens $ semisep $ [ppassign b i, ppexpr p, ppassign b t])
-                    <+> braceblock (ppstmt s)
+                    <> (parens $ semisep $ [ppdeclare b i, ppexpr p, ppassign b t])
+                    $+$ braceblock (ppstmt s)
 
-    While e s -> text "while" <> parens (ppexpr e) <+> braceblock (ppstmt s)
+    While e s -> text "while" <> parens (ppexpr e) $+$ braceblock (ppstmt s)
     Ret e -> text "return" <+> ppexpr e <> semi
     Discard -> text "discard;"
     Halt -> text "return;"
@@ -94,8 +103,8 @@ ppdecl d = case d of
     Uni i t e ->  let v = (Var t i) 
         in text "uniform" <+> case e of
         Nothing -> ppbinding v <> semi
-        Just x -> ppassign (Var t i) x
-    Value i t e -> ppassign (Var t i) e
-    Proc i t ts s -> ppbinding (Var t i) <> parens (ppargs ts) <+> braceblock (ppstmt s)
-    Main s -> text "void main()" <+> braceblock (ppstmt s)
+        Just x -> ppdeclare (Var t i) x <> semi
+    Value i t e -> ppdeclare (Var t i) e <> semi
+    Proc i t ts s -> ppbinding (Var t i) <> parens (ppargs ts) $+$ braceblock (ppstmt s)
+    Main s -> text "void main()" $+$ braceblock (ppstmt s)
 

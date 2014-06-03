@@ -59,7 +59,8 @@ class Expr expr where
     prim2   :: String -> expr a -> expr b -> expr c
     val     :: Bind -> expr a
     call    :: Bind -> expr a -> expr b
-    swiz    :: Bind -> String -> expr a
+    swiz    :: expr (Mat a) -> String -> expr b
+    ifexpr  :: expr Bool -> expr a -> expr a -> expr a
 
 class Abst abst where
     lam     :: Bind -> Bind -> abst (a -> b)
@@ -72,7 +73,7 @@ class Stmt stmt where
     for     :: TagE Int -> (TagE Int -> TagE Bool) -> (TagE Int -> TagE Int) 
             -> stmt () -> stmt ()
     while   :: TagE Bool -> stmt () -> stmt ()
-    break   :: stmt ()
+    brk   :: stmt ()
     cont    :: stmt ()
     ret     :: TagE a -> stmt ()
     halt    :: stmt ()
@@ -96,8 +97,9 @@ data TagExpr = Lit Type Tagged
              | Prim2 String Type Type Type TagExpr TagExpr
              | Call Bind TagExpr
              | Val Bind
-             | Swiz Bind Type String
-
+             | Swiz TagExpr Type String
+             | IfExpr Type TagExpr TagExpr TagExpr
+    
 data TagStmt = Param Bind
              | DecVal Int Type TagExpr
              | Mutate Bind TagExpr
@@ -134,6 +136,7 @@ instance Tag TagExpr where
         Call f xs           -> tag f
         Swiz b t s          -> t
         GMat t _            -> t 
+        IfExpr t _ _ _      -> t
 
 instance Expr TagE where
     lit a           = TagE $ Lit (tag a) (Tagged a)
@@ -146,16 +149,18 @@ instance Expr TagE where
     prim s x        = TagE $ Prim s (primTag s $ tag x) (tag x) (mkExpr x)
     prim2 s x y     = TagE $ Prim2 s (prim2Tag s (tag x) (tag y)) 
                         (tag x) (tag y) (mkExpr x) (mkExpr y)
-    val b = TagE $ Val b
-    call f xs  = TagE $ Call f (mkExpr xs)
-    swiz b s = TagE $ Swiz b t s
-        where t = case b of Var (Type t n 1) i -> Type t (length s) 1
+    val b           = TagE $ Val b
+    call f xs       = TagE $ Call f (mkExpr xs)
+    swiz b s        = TagE $ Swiz (mkExpr b) t s
+        where t     = case tag b of Type t n 1 -> Type t (length s) 1
+    ifexpr p i e    = TagE $ IfExpr (tag i) (mkExpr p) (mkExpr i) (mkExpr e)
 
 ------------------------------------------------------------------------------
 
 type WriteProc = RWS [TagDecl] [TagStmt] Int
-runProc :: WriteProc () -> [TagDecl] -> Int -> TagStmt
-runProc w e i = Block $ snd $ evalRWS w e i
+runProc :: WriteProc () -> [TagDecl] -> Int -> (TagStmt, Int)
+runProc w e i = let (st,wr) = execRWS w e i 
+                 in (Block wr, st)
 
 instance Stmt WriteProc where
     param t = do
@@ -164,32 +169,42 @@ instance Stmt WriteProc where
         tell [Param b]
         return b
     set b e = do
-        i <- nexti
         d <- asks (search b)
         let x = mkExpr e
         case d of
             Just y -> tell [Mutate b x]
             Nothing -> case b of 
                 FragColor -> tell [Mutate FragColor x]
-                other -> let d' = mkDecl e i
-                        in local (extend d') $ tell [DecVal i (tag e) x]
+                other -> do 
+                    i <- nexti
+                    let d' = mkDecl e i
+                    local (extend d') $ tell [DecVal i (tag e) x]
         return b
     ifElse p i e = do
         u <- ask
-        n <- get
-        tell [IfElse (mkExpr p) (runProc i u n) (runProc e u n)]
+        n1 <- nexti
+        let (ifCase, n2) = runProc i u n1
+            (elseCase, n3) = runProc e u n2
+        put n3
+        tell [IfElse (mkExpr p) ifCase elseCase]
     for s p t d = do
         i <- nexti
+        i2 <- nexti
         u <- ask
-        let iv = val (Var (Type Int 1 1) i)
-        tell [For (Var (tag s) i) (mkExpr s) (mkExpr (p $ iv)) 
-                    (mkExpr (t $ iv)) (runProc d u i)]
+        let ib = Var (Type Int 1 1) i
+            iv = val ib
+            (act, i3) = runProc d u i2
+        put i3
+        tell [For ib (mkExpr s) (mkExpr (p $ iv)) 
+                    (mkExpr (t $ iv)) act]
     while e s = do 
         u <- ask
-        i <- get
-        tell [While (mkExpr e) (runProc s u i)]
+        i <- nexti
+        let (act, i2) = runProc s u i
+        put i2
+        tell [While (mkExpr e) act]
     ret r = tell [Ret (mkExpr r)]
-    break = tell [Break]
+    brk = tell [Break]
     cont = tell [Cont]
     halt = tell [Halt]
     discard = tell [Discard]
@@ -216,24 +231,26 @@ instance Decl WriteProg where
         local (extend v) $ tell [v]
         return (Var t i)
     proc s = do
-        i <- get
+        i1 <- nexti
         e <- ask
-        let st = runProc s e i
+        let (st, i2) = runProc s e (i1 + 1)
+            p = Proc i1 t ts st
             (t, ts) = tagStmt st
-            p = Proc i t ts st
+        put i2
         local (extend p) $ tell [p]
-        i' <- nexti
-        return (call (Var t i'))
+        return (call (Var t i1))
     fragMain s = do
-        i <- get
+        i1 <- nexti
         e <- ask
-        let st = runProc s e i
+        let (st, i2) = runProc s e i1
             m = Main st
+        put i2
         local (extend m) $ tell [m]
         return ()
 
 ------------------------------------------------------------------------------
 -- Synonyms
+bool_t = Type Bool 1 1
 int_t = Type Int 1 1
 float_t = Type Float 1 1
 vec_t n = Type Float n 1
@@ -273,6 +290,18 @@ bind m = do
             set (Var (tag x) i) e
 
 
+mkBinding :: Type -> WriteProc Bind
+mkBinding t = do
+    i <- nexti
+    return (Var t i) 
+
+mkFloat = mkBinding float_t
+mkInt = mkBinding int_t
+mkBool = mkBinding bool_t
+mkVec = mkBinding . vec_t
+mkMat n = mkBinding . mat_t n
+
+
 setColor :: TagE (Mat Float) -> WriteProc ()
 setColor m = set FragColor m >> return ()
 
@@ -295,11 +324,11 @@ opTag x y = case (tag x, tag y) of
 
 mulTag :: TagE a -> TagE b -> Type
 mulTag x y = case (tag x, tag y) of
-  (Type a n m, Type _ m' o)
-    | n == 1 && m == 1 -> Type a m' o
-    | m' == 1 && (m == o || o == 1) -> Type a n 1
-    | m' == m -> Type a n o 
-    | otherwise -> error "Incorrect vector mult. dimension"
+  (Type a n m, Type _ n' m')
+    | n == 1 && m == 1 -> Type a n' m' 
+    | m == 1 && m' == 1 && (n == n' || n' == 1) -> Type a n 1
+    | n' == m -> Type a n m' 
+    | otherwise -> error "Incorrect dimensions for matrix multiplication"
 
 tagStmt :: TagStmt -> (Type, [Bind])
 tagStmt s = case s of
@@ -325,7 +354,7 @@ extend = (:)
 search ::  Bind -> [TagDecl] -> Maybe TagDecl
 search b [] = Nothing
 search (Var t i) (x:xs) = case x of
-    Value i t e -> if i == i && t == t 
+    Value i' t' e -> if i == i' && t == t'
         then Just (Value i t e)
         else search (Var t i) xs
     other -> search (Var t i) xs

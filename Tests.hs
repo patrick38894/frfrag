@@ -1,5 +1,5 @@
 import Language
-import Num
+import Ops
 import Printer
 
 ------------------------------------------------------------------------
@@ -29,8 +29,12 @@ passthrough = fragMain (setColor (val FragColor))
 brighten :: WriteProg ()
 brighten = fragMain (setColor (val FragColor .* float 2))
 
-colormap :: Float -> Float -> [Bind] -> TagE (Mat Float)
-colormap c1 c2 [x] = vec [val x * lit c1, 1 - val x * lit c2, 0.5, 1]
+colormap :: Float -> Float -> Bind -> TagE (Mat Float)
+colormap c1 c2 x = vec [val x * lit c1, 1 - val x * lit c2, 0.5, 1]
+
+complexMult :: Expr expr => expr (Mat Float) -> expr (Mat Float) -> expr (Mat Float)
+complexMult a b = vec [a .@ "x" .* b .@ "x" .- a .@ "y" .* b .@ "y",
+                       swiz a "x" .* swiz b "y" .+ swiz a "y" .* swiz b "x"]
 
 mandelbrot :: Float -> Float -> WriteProg ()
 mandelbrot c1 c2 =   do
@@ -45,10 +49,20 @@ mandelbrot c1 c2 =   do
         ret   (p .- screen ./ float 2)
     scale   <- proc $ do
         p   <- arg $ vec_t 2
-        ret   (p * zoom / screen + center)
+        ret   (p .* zoom / screen + center)
     colors  <- proc $ do
         x   <- bind $ arg float_t
-        ret   (colormap c1 c2 [x])
-    mandel  <- proc $ do undefined
+        ret   (colormap c1 c2 x)
+    mandel  <- proc $ do
+        c <- param (vec_t 2)
+        s <- mkFloat; set s (float 0)
+        z <- mkVec 2; set z (val c)
+        let vz = val z
+        for 0 (\i -> i .< iter) (\i -> i + 1) $ do
+            set z $ complexMult vz vz + val c
+            ifElse (thresh .< dot vz vz) brk noOp
+            set s (val s + step); noOp
+        ret (val s)
+
     fragMain $ do
         setColor (mandel (scale (offset $ val FragCoord)))
