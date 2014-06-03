@@ -1,12 +1,14 @@
 TODO
 
+-1) Write pretty printer
 
--1) Make functions unary (for now)
+0) Make functions unary (for now)
     * Consider solving this problem just by using structs or currying
-   
-0) Fix mandelbrot.
-
-1) Write pretty printer
+    * It seems binary functions are also necessary.
+    * Set semantics are off.
+        Namely, revert to Declare vs Mutate.   
+    
+1) Fix mandelbrot.
 
 2) Write comparison instances
 

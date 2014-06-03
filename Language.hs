@@ -12,10 +12,10 @@ import Control.Monad.RWS
 
 ------------------------------------------------------------------------------
 -- Type representations
-data PrimType = Bool | Int | Float deriving (Eq, Show)
-data Type = Type PrimType Int Int | Void deriving (Eq, Show)
-data Bind = Var Type Int | FragCoord | FragColor deriving (Eq, Show)
-data Tagged = forall a . (Show a, Tag a) => Tagged a; deriving instance Show Tagged
+data PrimType = Bool | Int | Float deriving Eq
+data Type = Type PrimType Int Int | Void deriving Eq
+data Bind = Var Type Int | FragCoord | FragColor deriving Eq
+data Tagged = forall a . (Show a, Tag a) => Tagged a
 data TaggedF expr = forall a . TaggedF (expr a)
 
 class Tag a where tag :: a -> Type
@@ -42,7 +42,11 @@ instance Tag a => Tag (Mat a) where
                     enforce (x:y:xs) = if x == y 
                         then enforce (y:xs)
                         else error "Inconsistent vector or matrix dimension"
-                in if n == 1 then Type t m 1 else Type t n m
+                in if n > 4 || m > 4
+                    then error "Maximum matrix dimension is 4"
+                    else if n == 1 && m < 5
+                        then Type t m 1 
+                        else Type t n m
 ------------------------------------------------------------------------------
 -- Type semantics
 class Expr expr where
@@ -54,7 +58,7 @@ class Expr expr where
     prim    :: String -> expr a -> expr b
     prim2   :: String -> expr a -> expr b -> expr c
     val     :: Bind -> expr a
-    call    :: Bind -> [Bind] -> expr a
+    call    :: Bind -> expr a -> expr b
     swiz    :: Bind -> String -> expr a
 
 class Abst abst where
@@ -78,7 +82,7 @@ class Stmt stmt where
 class Decl decl where
     uni     :: Either Type (TagE a) -> decl Bind
     valu    :: TagE a -> decl Bind
-    proc    :: WriteProc () -> decl ([Bind] -> TagE a)
+    proc    :: WriteProc () -> decl (TagE a -> TagE a)
     fragMain:: WriteProc () -> decl ()
 
 ------------------------------------------------------------------------------
@@ -90,10 +94,9 @@ data TagExpr = Lit Type Tagged
              | CompOp String Type TagExpr TagExpr
              | Prim String Type Type TagExpr
              | Prim2 String Type Type Type TagExpr TagExpr
-             | Call Bind [Bind]
+             | Call Bind TagExpr
              | Val Bind
              | Swiz Bind Type String
-             deriving Show
 
 data TagStmt = Param Bind
              | DecVal TagDecl
@@ -108,17 +111,15 @@ data TagStmt = Param Bind
              | Break
              | Cont
              | NoOp
-             deriving Show
 
 data TagDecl = Uni   Int Type (Maybe TagExpr)
              | Value Int Type TagExpr
              | Proc  Int Type [Type] TagStmt 
              | Main TagStmt
-             deriving Show
 ------------------------------------------------------------------------------
 -- Expr instance : TagE
 
-newtype TagE a = TagE {mkExpr :: TagExpr} deriving (Functor, Show)
+newtype TagE a = TagE {mkExpr :: TagExpr} deriving (Functor)
 instance Tag (TagE a) where tag (TagE t) = tag t
 
 instance Tag TagExpr where
@@ -146,7 +147,7 @@ instance Expr TagE where
     prim2 s x y     = TagE $ Prim2 s (prim2Tag s (tag x) (tag y)) 
                         (tag x) (tag y) (mkExpr x) (mkExpr y)
     val b = TagE $ Val b
-    call f xs  = TagE $ Call f xs
+    call f xs  = TagE $ Call f (mkExpr xs)
     swiz b s = TagE $ Swiz b t s
         where t = case b of Var (Type t n 1) i -> Type t (length s) 1
 
@@ -155,7 +156,6 @@ instance Expr TagE where
 type WriteProc = RWS [TagDecl] [TagStmt] Int
 runProc :: WriteProc () -> [TagDecl] -> Int -> TagStmt
 runProc w e i = Block $ snd $ evalRWS w e i
-instance Show (WriteProc ()) where show w = show $ runProc w [] 0
 
 instance Stmt WriteProc where
     param t = do
@@ -200,7 +200,6 @@ instance Stmt WriteProc where
 type WriteProg = RWS [TagDecl] [TagDecl] Int
 runProg :: WriteProg a -> [TagDecl]
 runProg p = snd $ evalRWS p [] 0
-instance Show (WriteProg a) where show = show . runProg
 instance Decl WriteProg where
     uni e = do
         i <- nexti
@@ -223,7 +222,7 @@ instance Decl WriteProg where
             p = Proc i t ts st
         local (extend p) $ tell [p]
         i' <- get
-        return (call (Var t i')) 
+        return (call (Var t i'))
     fragMain s = do
         i <- get
         e <- ask
@@ -287,7 +286,7 @@ prim2Tag s t u = t -- TODO check if this is actually right
 
 opTag :: TagE a -> TagE b -> Type
 opTag x y = case (tag x, tag y) of
-  (Type a n m, Type _ n' m') 
+  (Type a n m, Type _ n' m')
     | n == n' && m == m' || n' == 1 && m' == 1 -> Type a n m
     | n == 1 && m == 1 -> Type a n' m'
     | otherwise -> error "Inconsistent vector or matrix dimension"
