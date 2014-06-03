@@ -2,6 +2,8 @@ import Language
 import Ops
 import Printer
 
+main = print (mandelbrot 1 2)
+
 ------------------------------------------------------------------------
 -- Basic
 
