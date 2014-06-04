@@ -2,7 +2,7 @@ import Language
 import Ops
 import Printer
 
-main = print (mandelbrot 1 2)
+main = print (simpleAssignment)
 
 ------------------------------------------------------------------------
 -- Basic
@@ -30,6 +30,17 @@ passthrough = fragMain (setColor (val FragColor))
 
 brighten :: WriteProg ()
 brighten = fragMain (setColor (val FragColor .* float 2))
+
+contrast :: WriteProg ()
+contrast = let c = val FragColor in fragMain (setColor (c .* c))
+
+simpleAssignment :: WriteProg ()
+simpleAssignment = do
+    screen  <- uarg (vec_t 2)
+    fragMain $ do
+        x <- mkFloat; set x (screen .@ "x")
+        setColor (val FragCoord ./ val x)
+    
 
 colormap :: Float -> Float -> Bind -> TagE (Mat Float)
 colormap c1 c2 x = vec [val x * lit c1, 1 - val x * lit c2, 0.5, 1]

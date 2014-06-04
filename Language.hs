@@ -35,10 +35,14 @@ instance Tag Tagged where tag (Tagged a) = tag a
 -- Matrices
 data Mat a = Mat [[a]] deriving (Functor, Show)
 instance Tag a => Tag (Mat a) where 
- tag (Mat xs) = let (Type t 1 1) = tag (head (head xs))
+ tag (Mat xs) = let a = tag (head (head xs))
                     ls = map length xs
                     n = length ls
                     m = enforce ls
+                    t = case a of
+                        Type t 1 1 -> t
+                        Type t n m -> error $ "Scalar expected, but got "
+                                        ++ show n ++ "," ++ show m
                     enforce [x] = x
                     enforce (x:y:xs) = if x == y 
                         then enforce (y:xs)
@@ -135,7 +139,7 @@ instance Tag TagExpr where
         Prim2 _ t _ _ _ _   -> t
         Val b               -> tag b
         Call f xs           -> tag f
-        Swiz b t s          -> t
+        Swiz b t s          -> case t of Type r n 1 -> Type r (length s) 1
         GMat t _            -> t 
         IfExpr t _ _ _      -> t
 
@@ -160,8 +164,8 @@ instance Expr TagE where
 
 type WriteProc = State (([TagDecl], [TagStmt]), Int)
 runProc :: WriteProc a -> [TagDecl] -> Int -> (TagStmt, Int)
-runProc w e i = let ((env,stmts), i) = execState w ((e,[]), i) 
-                 in (Block stmts, i)
+runProc w e i = let ((env,stmts), i') = execState w ((e,[]), i) 
+                 in (Block stmts, i')
 
 
 tell :: [TagStmt] -> WriteProc ()
@@ -194,11 +198,10 @@ instance Stmt WriteProc where
         case d of
             Just y -> tell [Mutate b x] >> return b
             Nothing -> case b of 
+                FragCoord -> error "Cannot set gl_FragCoord"
                 FragColor -> tell [Mutate FragColor x] >> return b
-                other -> do
-                    i <- nexti
-                    let d' = mkDecl e i
-                    localupd (extend d')
+                (Var t i) -> do
+                    localupd (extend (Value i t (mkExpr e)))
                     tell [DecVal i (tag e) x]
                     return b
     ifElse p i e = do
@@ -236,7 +239,7 @@ instance Stmt WriteProc where
 
 type WriteProg = State ([TagDecl], Int)
 runProg :: WriteProg a -> [TagDecl]
-runProg p = fst $ execState p ([], 0)
+runProg p = reverse $ fst $ execState p ([], 0)
 instance Decl WriteProg where
     uni e = do
         i <- nexti
@@ -261,8 +264,7 @@ instance Decl WriteProg where
         upd (extend p) 
         return (call (Var t i1))
     fragMain s = do
-        i1 <- nexti
-        e <- env
+        (e,i1) <- get
         let (st, i2) = runProc s e i1
             m = Main st
         puti i2
@@ -320,6 +322,9 @@ mkBool = mkBinding bool_t
 mkVec = mkBinding . vec_t
 mkMat n = mkBinding . mat_t n
 
+fragCoord, fragColor :: Expr expr => expr (Mat Float)
+fragCoord = val FragCoord
+fragColor = val FragColor
 
 setColor :: TagE (Mat Float) -> WriteProc ()
 setColor m = set FragColor m >> return ()
