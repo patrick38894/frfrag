@@ -1,22 +1,10 @@
 TODO
 
--1) Write pretty printer
+1) Add GLFW test setup
+2) Add Pipes control of uniforms
+3) Add FRP primitives (Abstract uniforms into FRP vars)
 
-0) Make functions unary (for now)
-    * Consider solving this problem just by using structs or currying
-    * It seems binary functions are also necessary.
-    * Set semantics are off.
-        Namely, revert to Declare vs Mutate.   
-    
-1) Fix mandelbrot.
-
-2) Write comparison instances
-
-3) Add GLFW test setup
-4) Add Pipes control of uniforms
-5) Add FRP primitives (Abstract uniforms into FRP vars)
-
-6) Add shapes and regions
+4) Add shapes and regions
      Tests (outline and fill):
          Circle
          Square
@@ -25,7 +13,7 @@ TODO
          Area under a curve
          Intersection of circle and square            
 
-7) More tests
+5) More tests
      Light following mouse
      Fractal explorer (newton, mandel)
      Hyperbolic pong
@@ -33,14 +21,14 @@ TODO
      Fire
      Starfield
 
-8) Add combinators, e.g. lambda, application, 
+6) Add combinators, e.g. lambda, application, 
     "Warp" - change underlying glFragcoord in all occurrances,
     "Tint" change color in all occurances
 
-9) Add Stream functions for more abstract loops
+7) Add Stream functions for more abstract loops
 
-10) Add Structs. Add GHC-Generic based struct coupling.
+8) Add Structs. Add GHC-Generic based struct coupling.
 
-11) Add optimization - constant folding.
+9) Add optimization - constant folding.
 
-12) Clean up repo and refactor. Make all errors consistently handled.
+10) Clean up repo and refactor. Make all errors consistently handled.
