@@ -1,10 +1,16 @@
 TODO
 
+0) Add FRP primitives (Abstract uniforms into FRP vars)
+    * Primitives act at the level of what shaders are chosen and what uniforms exist,
+        and stuff solely in FRP infrastructure.
+    * Use the semantic class notion again,
+        then implement in Pipes.
+
 1) Add GLFW test setup
 2) Add Pipes control of uniforms
-3) Add FRP primitives (Abstract uniforms into FRP vars)
 
 4) Add shapes and regions
+    * Purely done at the shader program level, not FRP (though can control centers/etc with params)
      Tests (outline and fill):
          Circle
          Square
