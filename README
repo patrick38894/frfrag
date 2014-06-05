@@ -1,0 +1,10 @@
+Required libraries:
+    pipes
+    pipes-concurrency
+    glfw-b (occupies same module namespace as glfw, 
+            so may need to use ghc-pkg to select the right one)
+    OpenGL
+
+To test:
+    Salient demos are in TestWin.hs,
+    which needs to be compiled to an executable for the windowing code to run.

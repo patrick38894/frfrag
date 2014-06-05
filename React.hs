@@ -8,7 +8,6 @@ import qualified Data.ByteString.Char8 as B
 import qualified Pipes.Prelude as P
 import Clock
 import Printer
-import Control.Monad.Identity
 
 ------------------------------------------------------------------------------
 -- FRP infrastructure
