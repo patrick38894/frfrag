@@ -1,80 +1,167 @@
+{-# Language OverloadedStrings #-}
 module Render where
+import Clock
+import Control.Exception(bracketOnError)
+import Control.Monad (void,forever,unless)
 import Pipes
-import Control.Monad
+import Pipes.Concurrent
+import System.Exit (exitWith, ExitCode(..))
+import Foreign.Marshal.Array(withArray)
+import Foreign.Storable(sizeOf)
+import Foreign.Ptr(plusPtr, nullPtr)
+import Graphics.Rendering.OpenGL (($=))
+import qualified Data.ByteString.Char8 as B
+import qualified Graphics.UI.GLFW as GLFW
 import qualified Pipes.Prelude as P
-import Language
-import System.Clock
+import qualified Graphics.Rendering.OpenGL as GL
 
-type Uniform = (Type, Tagged)
+------------------------------------------------------------------------------
+-- Basic GLSL vertex source
+vertSource = B.intercalate "\n"
+           [ "#version 430 core",
+             "layout(location = 0) in vec4 v;",
+             "void main() { gl_Position = v; }"]
 
-data Input
+------------------------------------------------------------------------------
+-- Low-level rendering
+-- Taken from examples by Svenne Panne, (c) 2013
 
-type Fragment = [TagDecl]
+type KeyInfo = (GLFW.Key, Int, GLFW.KeyState, GLFW.ModifierKeys) 
+data Descriptor = Desc GL.VertexArrayObject GL.ArrayIndex GL.NumArrayIndices 
+data ShaderInfo = ShaderInfo GL.ShaderType B.ByteString
 
-data Beh a = Const a
+-- Initialize a GL fragment shader from source
+initShader :: B.ByteString -> IO (GL.Program, Descriptor)
+initShader src = do
+    let w = map (\(x,y) -> GL.Vertex2 x y)
+            [(-1,-1), (-1,1), (1,1), (1,-1), 
+             (-1,-1), (-1,1), (1,1), (1,-1), (-1,-1::Float)]
+    ts <- GL.genObjectName
+    as <- GL.genObjectName
+    GL.bindVertexArrayObject $= Just ts
+    GL.bindBuffer GL.ArrayBuffer $= Just as
+    withArray w $ \p -> do
+        let s = fromIntegral $ length w * sizeOf (head w)
+        GL.bufferData GL.ArrayBuffer $= (s, p, GL.StaticDraw)
+    prog <- loadShader src
+    let v = GL.AttribLocation 0
+    GL.vertexAttribPointer v $= 
+        (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 
+                     (plusPtr nullPtr $ fromIntegral 0))
+    GL.vertexAttribArray v $= GL.Enabled
+    return $ (prog, Desc ts 0 (fromIntegral (length w)))
 
-data Event a = Event (Maybe a)
+-- Load a fragment shader (along with the default vertex shader)
+loadShader src =
+    GL.createProgram `bracketOnError` GL.deleteObjectName $ \p -> do
+    loadCompileAttach p [ ShaderInfo GL.VertexShader vertSource,
+                          ShaderInfo GL.FragmentShader src ]
+    linkAndCheck p
+    return p
 
+-- Load, compile, and attach shaders
+loadCompileAttach :: GL.Program -> [ShaderInfo] -> IO ()
+loadCompileAttach p (ShaderInfo ty src : is) =
+    GL.createShader ty `bracketOnError` GL.deleteObjectName $ \f -> do
+        GL.shaderSourceBS f $= src
+        compileAndCheck f
+        GL.attachShader p f
+        loadCompileAttach p is
 
-test = runEffect $ Pipes.for (clock 20) (lift . putStrLn . Prelude.show)
-test2 = runEffect $ waitClock 60 (count 0) >-> P.print
+-- Compile and link shaders
+compileAndCheck = checkStatus GL.compileShader GL.compileStatus GL.shaderInfoLog "compile"
+linkAndCheck = checkStatus GL.linkProgram GL.linkStatus GL.programInfoLog "link"
+checkStatus a g i m o = do
+    a o
+    s <- GL.get (g o)
+    unless s (do log <- GL.get (i o); fail (m ++ " log: " ++ log))
 
+-- Initialize a GLFW window and return a handle to it
+createWindow :: String -> (Int, Int) 
+            -> IO (GLFW.Window, 
+                  Producer KeyInfo IO (), 
+                  Producer (Int,Int) IO (),
+                  Producer (Double,Double) IO ())
+createWindow name (x,y) = do
+    GLFW.init
+    GLFW.defaultWindowHints
+    Just w <- GLFW.createWindow x y name Nothing Nothing
+    GLFW.makeContextCurrent (Just w)
+    GLFW.setWindowCloseCallback w (Just closeWindow)
+    return (w, keyPressedP w, resizeP w, cursorP w)
 
-count :: Monad m => Int -> Producer Int m r
-count n = yield n >> count (n+1)
+-- Draw each shader in a list of fragment sources in the given window
+drawInWindow :: [B.ByteString] -> GLFW.Window -> IO ()
+drawInWindow srcs w = do
+    ds <- mapM initShader srcs
+    forever $ do
+        GL.clearColor $= GL.Color4 0 0 0 0
+        GL.clear [GL.ColorBuffer]
+        mapM_ drawFragment ds
+        GLFW.swapBuffers w
+        GLFW.pollEvents
 
--- Given a frequency, produce a stream of doubles counting by the period corresponding to it.
---clock :: Double -> Producer Double IO Double
-clock hz = do 
-    s <- lift (monoTime)
-    count 1 >-> ticks s hz
+-- Draw a single fragment shader in the current context
+drawFragment :: (GL.Program, Descriptor) -> IO ()
+drawFragment (p, (Desc ts ix vn)) = do
+    GL.currentProgram $= Just p
+    GL.bindVertexArrayObject $= Just ts
+    GL.drawArrays GL.Triangles ix vn
 
---ticks :: Double -> Pipe Double IO Double Double
-ticks s hz = do
-    n <- await
-    t <- lift $ waitUntil $ (+s) $ (*period hz) $ fromIntegral $ n
-    yield t
-    ticks (s+period hz) hz
+-- Draw each shader. Return handles to pipes with window input.
+drawWithInput :: [B.ByteString] -> String -> (Int, Int)
+                -> IO (Producer KeyInfo IO (), 
+                      Producer (Int,Int) IO (),
+                      Producer (Double,Double) IO ())
+drawWithInput fs nm (x,y) = do
+    (w, keyPipe, szPipe, curPipe) <- createWindow nm (x,y)
+    forkIO (drawInWindow fs w)
+    return (keyPipe, szPipe, curPipe)
 
-seconds :: TimeSpec -> Double
-seconds (TimeSpec s ns) = fromIntegral s + fromIntegral ns / 10 ** 9
+-- Draw each shader, and use the given input handlers to handle input.
+handleInput keyHandler szHandler curHandler fs nm (x,y) = do
+    (w, keyPipe, szPipe, curPipe) <- createWindow nm (x,y)
+    forkIO $ runEffect $ keyPipe >-> keyHandler
+    forkIO $ runEffect $ szPipe >-> szHandler
+    forkIO $ runEffect $ curPipe >-> curHandler
+    drawInWindow fs w
 
-timeSpec :: Double -> TimeSpec
-timeSpec d = let (s,ns) = properFraction d in
-    TimeSpec s (round $ ns * 10 ** 9)
+-- Print out all input to the console using show
+debugInput :: [B.ByteString] -> String -> (Int, Int) -> IO ()
+debugInput = handleInput P.print P.print P.print
+    
+-- Close the window on close signal
+closeWindow :: GLFW.WindowCloseCallback
+closeWindow w = do
+    GLFW.destroyWindow w
+    GLFW.terminate
+    void (exitWith ExitSuccess)
 
-period :: Double -> Double
-period hz = 1 / hz
+-- Export input resize events in a pipe
+resizeP :: GLFW.Window -> Producer (Int,Int) IO ()
+resizeP w = do
+    (outp, inp) <- lift $ spawn Single
+    let f w x y = do
+        atomically $ send outp (x,y)
+        GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral x) (fromIntegral y))
+        GL.matrixMode $= GL.Projection
+        GL.loadIdentity
+        GL.ortho2D 0 (realToFrac x) (realToFrac y) 0
+    lift $ GLFW.setWindowSizeCallback w (Just f)
+    fromInput inp
 
-monoTime :: IO Double
-monoTime = fmap seconds (getTime Realtime)
+-- Export input key events in a pipe
+keyPressedP :: GLFW.Window -> Producer KeyInfo IO ()
+keyPressedP w = do
+    (outp,inp) <- lift $ spawn Single
+    let f w k s t u = atomically $ send outp (k,s,t,u) >> return ()
+    lift $ GLFW.setKeyCallback w (Just f)
+    fromInput inp 
 
-waitUntil :: Double -> IO Double
-waitUntil t = do
-    t' <- monoTime
-    unless (t' > t) (void $ waitUntil t)
-    return t'
-
--- Wait until a clock signal before passing along next value
-waitClock :: Double -> Producer a IO r -> Producer (Double, a) IO r
-waitClock hz = P.zip (clock hz)
-
-
--- Get user input from GLFW,
---  including mouse, keyboard, window resize and close events
-getUserInput :: Producer Input IO ()
-getUserInput = undefined
-
--- If given, update the shader to a new one, compiling and linking the new shader program.
-updateShader :: Consumer String IO ()
-updateShader = undefined
-
--- If given, update all supplied uniform values to new ones.
-updateUniforms :: Consumer [Maybe Uniform] IO ()
-updateUniforms = undefined
-
-
--- Render a sequence of fragment shaders, all sharing the same uniform values,
--- at a given clock rate and default window size
-renderFrags :: Event [Fragment] -> Event [Uniform] -> Double -> (Double, Double) -> IO ()
-renderFrags = undefined
+-- Export mouse location
+cursorP :: GLFW.Window -> Producer (Double, Double) IO ()
+cursorP w = do
+    (outp, inp) <- lift $ spawn Single
+    let f w x y = atomically $ send outp (x,y) >> return ()
+    lift $ GLFW.setCursorPosCallback w (Just f)
+    fromInput inp 
