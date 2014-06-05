@@ -61,6 +61,7 @@ loadShader src =
 
 -- Load, compile, and attach shaders
 loadCompileAttach :: GL.Program -> [ShaderInfo] -> IO ()
+loadCompileAttach p [] = return ()
 loadCompileAttach p (ShaderInfo ty src : is) =
     GL.createShader ty `bracketOnError` GL.deleteObjectName $ \f -> do
         GL.shaderSourceBS f $= src

@@ -1,3 +1,7 @@
 import Render
+import Tests
+import Data.ByteString.Char8
 
-main = debugInput [] "test" (200,200)
+mbrot = show $ mandelbrot 0.2 2
+
+main = debugInput [pack mbrot] "test" (200,200)

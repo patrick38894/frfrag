@@ -1,8 +1,7 @@
+module Tests where
 import Language
 import Ops
 import Printer
-
-main = print (simpleAssignment)
 
 ------------------------------------------------------------------------
 -- Basic
