@@ -1,40 +1,36 @@
 TODO
 
-0) Add FRP primitives (Abstract uniforms into FRP vars)
-    * Primitives act at the level of what shaders are chosen and what uniforms exist,
-        and stuff solely in FRP infrastructure.
-    * Use the semantic class notion again,
-        then implement in Pipes.
+1) Finish implementation of uniform controller and test Mandelbrot explorer.
+2) Make neat variants of the Mandelbrot explorer.
+3) Make test file including choice of:
+    1) Empty shader
+    2) Red shader
+    3) sin shader
+    4) gradient shader
+    5) static mandelbrot
+    6) Clock to console
+    7) inputs to console
+    8) mandelbrot explorer
+    9) pulsing mandelbrot
+    10) mandelbrot explorer with color change over time
 
-1) Add GLFW test setup
-2) Add Pipes control of uniforms
+4) Make presentation:
+    1) GL pipeline basics
+        a) overview
+        b) Shader types: vertex, geometry, fragment, compute
+        c) GLSL
+    2) GLSL subset
+        a) discussion of approaches to AST
+            - tagged
+            - typed tagless with GADTs
+            - hybrid approach with classes
+        b) the AST
+        c) pretty printing
+        d) example programs in Haskell and resulting GLSL
+    3) Pipes
+        a) Basic example: clock
+        b) FRP primitives
+        c) Controlling uniforms
+    4) Examples from above - slide for each with code, pause to show example
 
-4) Add shapes and regions
-    * Purely done at the shader program level, not FRP (though can control centers/etc with params)
-     Tests (outline and fill):
-         Circle
-         Square
-         Triangle
-         Regular polygon
-         Area under a curve
-         Intersection of circle and square            
-
-5) More tests
-     Light following mouse
-     Fractal explorer (newton, mandel)
-     Hyperbolic pong
-     Water/rain/ripples
-     Fire
-     Starfield
-
-6) Add combinators, e.g. lambda, application, 
-    "Warp" - change underlying glFragcoord in all occurrances,
-    "Tint" change color in all occurances
-
-7) Add Stream functions for more abstract loops
-
-8) Add Structs. Add GHC-Generic based struct coupling.
-
-9) Add optimization - constant folding.
-
-10) Clean up repo and refactor. Make all errors consistently handled.
+5) Make readme for compiling

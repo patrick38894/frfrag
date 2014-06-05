@@ -4,9 +4,10 @@ import Render
 import Language
 import Pipes
 import Pipes.Concurrent
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B
 import qualified Pipes.Prelude as P
 import Clock
+import Printer
 import Control.Monad.Identity
 
 ------------------------------------------------------------------------------
@@ -181,13 +182,14 @@ instance Floating a => Floating (Behavior a) where
 -- all of which must have the same uniform inputs.
 --           uniform types -> uniform behavior -> shader selection
 --         -> window title -> size -> reactive program
-data Uniform
-data Fragment
+type Uniform = (Type, Tagged)
+type Fragment = WriteProg ()
+
 renderReactive :: [Fragment] -> [Type] -> Behavior [Uniform]
               -> String -> (Int, Int) -> Double -> IO ()
 renderReactive fs uts ubs nm (x,y) hz = do
     -- Set up the initial window
-    verifyUniforms fs uts
+    verifyUniformsFrag fs uts
     (ks, rsz, ms) <- drawWithInput (map pprint fs) nm (x,y)
     (outp, inp) <- spawn Unbounded
     forkIO $ do runEffect $ ks >-> keyToEvent >-> toOutput outp
@@ -200,19 +202,22 @@ renderReactive fs uts ubs nm (x,y) hz = do
 
 
 pprint :: Fragment -> B.ByteString
-pprint = undefined
+pprint = B.pack . show
 
 setUniforms :: [Type] -> Consumer [Uniform] IO ()
 setUniforms ts = undefined
-
 
 keyToEvent = undefined
 rszToEvent = undefined
 msToEvent = undefined
 
-verifyUniforms :: [Fragment] -> [Type] -> IO ()
-verifyUniforms fs ts = undefined
- 
+getUniforms :: Fragment -> [Uniform]
+getUniforms = undefined
 
+verifyUniformsFrag :: [Fragment] -> [Type] -> IO ()
+verifyUniformsFrag fs ts = if and $ map (verifyUniforms ts . getUniforms) fs
+    then return ()
+    else error "Incorrect types in fragment uniform declarations"
 
-
+verifyUniforms :: [Type] -> [Uniform] -> Bool
+verifyUniforms ts us = and $ zipWith (==) (map fst us) ts
