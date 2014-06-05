@@ -17,7 +17,6 @@ data PrimType = Bool | Int | Float deriving Eq
 data Type = Type PrimType Int Int | Void deriving Eq
 data Bind = Var Type Int | FragCoord | FragColor deriving Eq
 data Tagged = forall a . (Show a, Tag a) => Tagged a
-data TaggedF expr = forall a . TaggedF (expr a)
 
 class Tag a where tag :: a -> Type
 instance Tag Bool where tag = const (Type Bool 1 1)
@@ -66,10 +65,6 @@ class Expr expr where
     call    :: Bind -> expr a -> expr b
     swiz    :: expr (Mat a) -> String -> expr b
     ifexpr  :: expr Bool -> expr a -> expr a -> expr a
-
-class Abst abst where
-    lam     :: Bind -> Bind -> abst (a -> b)
-    app     :: abst (a -> b) -> abst a -> abst b
 
 class Stmt stmt where
     param   :: Type -> stmt Bind

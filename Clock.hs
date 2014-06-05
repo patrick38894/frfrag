@@ -4,9 +4,6 @@ import Control.Monad
 import qualified Pipes.Prelude as P
 import System.Clock
 
-test = runEffect $ Pipes.for (clock 20) (lift . putStrLn . Prelude.show)
-test2 = runEffect $ waitClock 10 (count 0) >-> P.print
-test3 = runEffect $ waitClock_ 5 (count 100) >-> P.print
 
 ------------------------------------------------------------------------------
 -- Conversion functions

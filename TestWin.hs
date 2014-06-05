@@ -2,7 +2,12 @@ import Render
 import Tests
 import Data.ByteString.Char8
 import React
+import Clock
+import Pipes
+import qualified Pipes.Prelude as P
 
+clocktest1 = runEffect $ waitClock 10 (Clock.count 0) >-> P.print
+clocktest2 = runEffect $ waitClock_ 5 (Clock.count 100) >-> P.print
 
 mbrot0 = mandelbrot (/10) (/10) (/10) id
 mbrot1 = mandelbrot (\x -> 0.4 - x / 20) (/3) (\x -> let y = x/10 in y * y) id
@@ -15,7 +20,7 @@ mbrot5 = mbrot2' (\x -> x/6 + 300)
 testWin f = debugInput [pack (show f)] "test" (1000,1000)
 
 main = do
-    Prelude.putStrLn "Enter a number from 1 to 10"
+    Prelude.putStrLn "Enter a number from 1 to 11"
     r <- Prelude.getLine 
     case read r of
         1 -> Prelude.putStrLn (show redFrag)
@@ -28,3 +33,4 @@ main = do
         8 -> testWin mbrot3
         9 -> testWin mbrot4
         10 -> testWin mbrot5
+        11 -> clocktest2
