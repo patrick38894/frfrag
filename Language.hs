@@ -13,11 +13,20 @@ import Control.Arrow(first)
 
 ------------------------------------------------------------------------------
 -- Type representations
+-- Primitive types in GLSL
 data PrimType = Bool | Int | Float deriving Eq
+-- Types are scalar, vector, or matrix, all of which 
+-- can be represented using a single type and two dimensions.
+-- There is also a "void" type.
 data Type = Type PrimType Int Int | Void deriving Eq
+-- A binding pairs a (hopefully unique) integer identifier with a type,
+-- or is one of the built-in FragCoord or FragColor
 data Bind = Var Type Int | FragCoord | FragColor deriving Eq
+-- If a literal can be labelled with a type and shown,
+-- other type information can be discarded for the purposes of the AST.
 data Tagged = forall a . (Show a, Tag a) => Tagged a
 
+-- Tag class and instances.
 class Tag a where tag :: a -> Type
 instance Tag Bool where tag = const (Type Bool 1 1)
 instance Tag Int where tag = const (Type Int 1 1)
@@ -53,6 +62,19 @@ instance Tag a => Tag (Mat a) where
                         else Type t n m
 ------------------------------------------------------------------------------
 -- Type semantics
+-- Expression language.
+-- Supports literals, matrices of expressions,
+-- multiplication- and addition-precedence operations,
+-- comparison operations, unary and binary primitives,
+-- value lookups by reference, function calls,
+-- "swizzling" (selecting vector components, e.g. a.xy or a.yzx)
+-- Currently functions are considered to all be unary.
+-- In previous iterations of this,
+-- a "currying" approach or heterogenous argument lists were used.
+-- These approaches could be used as an extension to the current syntax,
+-- though were not implemented here due to lack of time or pressing need.
+-- If-expressions are the C-style "ternary operator",
+-- which returns one of two cases depending on the predicate.
 class Expr expr where
     lit     :: (Show a, Tag a) => a -> expr a
     matrix  :: Mat (expr a) -> expr (Mat a)
@@ -66,6 +88,19 @@ class Expr expr where
     swiz    :: expr (Mat a) -> String -> expr b
     ifexpr  :: expr Bool -> expr a -> expr a -> expr a
 
+-- Statements include setting a parameter (not a real GLSL feature,
+-- as this happens in the function prototype)
+-- (used to build the function - currently,
+-- multiple parameters are not supported
+-- (as noted above, a previous incarnation of this code
+-- used multiple parameters, and accumulated them in an argument list -
+-- but separate issues led me to simplify things to get a working result).
+-- Set performs assignment to a mutable local variable, which is declare
+-- (if it doesn't yet exist). The return type is a usable binding.
+-- IfElse, For, and While as well as Break, Continue, and Return work like in C.
+-- "Halt" is void return (with no returned expression).
+-- Discard immediately halts, and discards the whole fragment being shaded.
+-- NoOp does nothing (and isn't even printed).
 class Stmt stmt where
     param   :: Type -> stmt Bind
     set     :: Bind -> TagE a -> stmt Bind
@@ -80,6 +115,14 @@ class Stmt stmt where
     discard :: stmt ()
     noOp    :: stmt ()
 
+
+--Declarations include uniforms
+--(the input parameters to a fragment program),
+--values (global declarations),
+--processes (functions or procedures with local state),
+--and the main process (a special case of processes,
+--set aside for naming/typing simplicity,
+--which takes no arguments and returns void.
 class Decl decl where
     uni     :: Either Type (TagE a) -> decl Bind
     valu    :: TagE a -> decl Bind
@@ -88,6 +131,7 @@ class Decl decl where
 
 ------------------------------------------------------------------------------
 -- Tagged data structures
+-- Analogous to the semantics presented above, but with types moved into tags.
 data TagExpr = Lit Type Tagged
              | GMat Type (Mat TagExpr)
              | MulOp String Type TagExpr TagExpr
@@ -120,10 +164,15 @@ data TagDecl = Uni   Int Type (Maybe TagExpr)
              | Main TagStmt
 ------------------------------------------------------------------------------
 -- Expr instance : TagE
-
+-- TagE has the type semantics of Expr,
+-- but moves all type information into tags
+-- while building up the expression structure.
+-- The underlying data is a TagExpr.
 newtype TagE a = TagE {mkExpr :: TagExpr} deriving (Functor)
 instance Tag (TagE a) where tag (TagE t) = tag t
 
+-- TagExprs carry their type, so determining it is
+-- accomplished through pattern matching against the precomputed type.
 instance Tag TagExpr where
     tag t = case t of
         Lit t _             -> t
@@ -138,6 +187,7 @@ instance Tag TagExpr where
         GMat t _            -> t 
         IfExpr t _ _ _      -> t
 
+-- Instances for the Expr implementation.
 instance Expr TagE where
     lit a           = TagE $ Lit (tag a) (Tagged a)
     matrix xs       = TagE $ GMat (tag xs) (fmap mkExpr xs) 
@@ -157,30 +207,26 @@ instance Expr TagE where
 
 ------------------------------------------------------------------------------
 
+-- Statement typeclass instance
+-- Writing a procedure uses an input environment,
+-- and produces a list of statements.
+-- Earlier, this was based on the RWS monad
+-- (with the Decls in the reader and Stmts in the writer portion).
+-- However, the environment, declarations, and counter
+-- are all consistent throughout the process,
+-- and State ended up being the simplest way to structure this.
 type WriteProc = State (([TagDecl], [TagStmt]), Int)
 runProc :: WriteProc a -> [TagDecl] -> Int -> (TagStmt, Int)
 runProc w e i = let ((env,stmts), i') = execState w ((e,[]), i) 
                  in (Block stmts, i')
 
-
-tell :: [TagStmt] -> WriteProc ()
-tell d = modify (\((e,s),i) -> ((e,s++d),i))
-
-localenvf :: ([TagDecl] -> a) -> WriteProc a
-localenv = localenvf id
-
-localenvf f = fmap (f . fst . fst) get
-
-localupd :: ([TagDecl] -> [TagDecl]) -> WriteProc ()
-localupd f = modify (first (first f))
-
-envf :: ([TagDecl] -> a) -> WriteProg a
-envf f = fmap (f . fst) get
-env = envf id
-
-upd :: ([TagDecl] -> [TagDecl]) -> WriteProg ()
-upd f = modify (first f)
-
+-- Monadic instance for Stmt
+-- Update the list of output Stmts,
+-- as well as the environment.
+-- After using param and set,
+-- bindings are returned that can be used
+-- to refer to the involved values later.
+-- The counter is used to provide unique variable names.
 instance Stmt WriteProc where
     param t = do
         i <- nexti
@@ -231,7 +277,8 @@ instance Stmt WriteProc where
 
 ------------------------------------------------------------------------------
 -- Decl instance : WriteProg
-
+--  Similar to Stmt, Decls are built up piecewise,
+--  with a consistent environment state.
 type WriteProg = State ([TagDecl], Int)
 runProg :: WriteProg a -> [TagDecl]
 runProg p = reverse $ fst $ execState p ([], 0)
@@ -326,17 +373,23 @@ setColor m = set FragColor m >> return ()
 
 ------------------------------------------------------------------------------
 -- Misc internal functions
+-- Advance the internal counter state
 nexti       :: MonadState (a,Int) m => m Int
 nexti       = get >>= (\(_,i) -> puti (i+1) >> return (i + 1))
-
+-- Set the internal counter state
 puti        :: MonadState (a,Int) m => Int -> m ()
 puti i      = get >>= (\(a,_) -> put (a,i))
 
+-- Some primitives may (as special cases) return an unintuitive type.
+-- However no such functions are defined here yet.
 primTag :: String -> Type -> Type
-primTag s t = t -- TODO check if this is actually right
+primTag s t = t
 prim2Tag :: String -> Type -> Type -> Type
-prim2Tag s t u = t -- TODO check if this is actually right
+prim2Tag s t u = t
 
+-- Enforce dimension on math operations
+-- Scalars can be used on matrices or vectors for any operation,
+-- and vectors or matrices with the same dimension can be used together.
 opTag :: TagE a -> TagE b -> Type
 opTag x y = case (tag x, tag y) of
   (Type a n m, Type _ n' m')
@@ -344,6 +397,8 @@ opTag x y = case (tag x, tag y) of
     | n == 1 && m == 1 -> Type a n' m'
     | otherwise -> error "Inconsistent vector or matrix dimension"
 
+-- For multiplication, matrix multiplication is used
+-- (requiring different dimension enforcement)
 mulTag :: TagE a -> TagE b -> Type
 mulTag x y = case (tag x, tag y) of
   (Type a n m, Type _ n' m')
@@ -352,6 +407,9 @@ mulTag x y = case (tag x, tag y) of
     | n' == m -> Type a n m' 
     | otherwise -> error "Incorrect dimensions for matrix multiplication"
 
+-- Find the type of a statement.
+-- This is the return type if any exists,
+-- or other wise void.
 tagStmt :: TagStmt -> (Type, [Bind])
 tagStmt s = case s of
     Param t -> (Void, [t])
@@ -362,6 +420,8 @@ tagStmt s = case s of
     Block s -> foldr1 unify (map tagStmt s)    
     otherwise -> (Void, [])
     
+-- Combine like types, or combine anything with void
+-- Fail with an error for conflicting types
 unify :: (Type, [Bind]) -> (Type, [Bind]) -> (Type, [Bind])
 unify (a, as) (b, bs)
     | a == b = (a, as ++ bs)
@@ -384,4 +444,29 @@ search b xs = Nothing
 
 mkDecl :: TagE a -> Int -> TagDecl
 mkDecl a i = Value i (tag a) (mkExpr a)
+
+-- Fake writer operation for outputting statements
+tell :: [TagStmt] -> WriteProc ()
+tell d = modify (\((e,s),i) -> ((e,s++d),i))
+
+-- Fake reader monad for finding statements from the environment.
+-- Unlike the real reader monad, this environment persists throughout
+-- the lifetime of the context used to build the process
+-- (and is not actually locally scoped - except in terms of this function).
+localenvf :: ([TagDecl] -> a) -> WriteProc a
+localenv = localenvf id
+
+localenvf f = fmap (f . fst . fst) get
+
+localupd :: ([TagDecl] -> [TagDecl]) -> WriteProc ()
+localupd f = modify (first (first f))
+
+-- Analogous function for decls
+envf :: ([TagDecl] -> a) -> WriteProg a
+envf f = fmap (f . fst) get
+env = envf id
+
+upd :: ([TagDecl] -> [TagDecl]) -> WriteProg ()
+upd f = modify (first f)
+
 

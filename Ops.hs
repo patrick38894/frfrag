@@ -3,7 +3,7 @@ module Ops where
 import Language
 import Control.Monad
 
-
+-- Fixity mirroring that of real GLSL
 infixr 7 .@
 infixl 6 .*
 infixl 6 ./
@@ -17,10 +17,11 @@ infixr 3 .==
 infixr 2 .&&
 infixr 1 .||
 
+-- Infix operator for swizzle syntax
 (.@) :: Expr expr => expr (Mat a) -> String -> expr b
 (.@) = swiz
 
-
+-- Comparison operators
 (.<), (.>), (.>=), (.<=), (.==), (.&&), (.||) :: Expr expr => expr a -> expr a -> expr Bool
 (.<) = compOp "<"
 (.>) = compOp ">"
@@ -30,16 +31,21 @@ infixr 1 .||
 (.&&) = compOp "&&"
 (.||) = compOp "||"
 
+-- Generic numeric operators
+-- These work on differently typed inputs,
+-- e.g. a matrix and a scalar,
+-- so are a bit more general than the num instances.
 (.-), (./), (.+), (.*) :: Expr expr => expr a -> expr b -> expr c
 (.-) = addOp "-"
 (.+) = addOp "+"
 (.*) = mulOp "*"
 (./) = mulOp "/"
 
+-- Dot product for two vectors
 dot :: Expr expr => expr (Mat Float) -> expr (Mat Float) -> expr Float
 dot = prim2 "dot"
 
-
+-- Num, fractional, rational instances for matrixes and expressions
 instance (Num a, Show a, Tag a) => Num (TagE (Mat a)) where
     (+) = (.+)
     (-) = (.-)

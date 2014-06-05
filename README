@@ -8,3 +8,6 @@ Required libraries:
 To test:
     Salient demos are in TestWin.hs,
     which needs to be compiled to an executable for the windowing code to run.
+
+    These tests the GLSL EDSL and pretty printer,
+    GLFW boilerplate, and basic use of Pipes to coordinate concurrent programs.

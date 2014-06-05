@@ -4,10 +4,11 @@ import Language
 import Text.PrettyPrint.HughesPJ hiding (int, float)
 import qualified Text.PrettyPrint.HughesPJ as PP
 
+-- Pretty printing
 instance Show (WriteProg()) where show = render . vcat . map ppdecl . runProg
 instance Show TagDecl where show = render . ppdecl
 
-
+-- Shorthand for printing showable things
 class PPNative a where pp :: a -> Doc
 instance PPNative Int where pp = PP.int
 instance PPNative Bool where pp x = text $ if x then "true" else "false"
@@ -16,29 +17,40 @@ instance Show a => PPNative a where pp = text . show
 instance PPNative a => PPNative (Mat a) where
     pp (Mat xs) = commasep $ map pp $ concat $ xs
 
+-- Shorthand for laying out lists, etc
 commasep = sep . punctuate comma
 semisep = sep . punctuate semi
 braceblock x = lbrace $+$ nest 4 x $+$ rbrace
 
+-- Print a type-erased value
 pptagged :: Tagged -> Doc
 pptagged (Tagged a) = pp a
 
+-- Print out a binding, including type and name
 ppbinding :: Bind -> Doc
 ppbinding (Var t i) = pptag t <+> ppname (Var t i)
+ppbinding FragColor = ppname FragColor
+ppbinding FragCoord = ppname FragCoord
 
+-- Print out just the name of a binding
 ppname :: Bind -> Doc
 ppname n = case n of
     Var t i -> text "var" <> PP.int i
     FragColor -> text "gl_FragColor"
     FragCoord -> text "gl_FragCoord"
 
+-- Print out assignments and declarations
+-- (declarations show type)
 ppassign, ppdeclare :: Bind -> TagExpr -> Doc
 ppassign b e = ppname b <+> equals <+> ppexpr e
 ppdeclare b e = ppbinding b <+> equals <+> ppexpr e
 
+-- Print out an argument list
 ppargs :: [Bind] -> Doc
 ppargs = commasep . map ppbinding
 
+-- Print out an else clause
+-- (blank if the else is a no op)
 ppelse :: TagStmt -> Doc
 ppelse e = case e of 
     Block [NoOp] -> empty
@@ -46,6 +58,7 @@ ppelse e = case e of
     NoOp -> empty
     x -> text " else" $+$ ppstmt e
 
+-- Print out a type
 pptag :: Type -> Doc
 pptag t = case t of
     Type Int 1 1 -> text "int"
@@ -63,6 +76,8 @@ pptag t = case t of
                     else ("mat" ++ show n ++ "x" ++ show m)
         in text $ p ++ s
 
+-- Print an expr,
+-- laying it out like in GLSL
 ppexpr :: TagExpr -> Doc
 ppexpr e = case e of
     Lit t l -> pptagged l 
@@ -78,6 +93,7 @@ ppexpr e = case e of
     IfExpr _ p i e -> sep [ppexpr p <> text "?", parens (ppexpr i), 
                           text ":", parens (ppexpr e)]
 
+-- Statements
 ppstmt :: TagStmt -> Doc
 ppstmt s = case s of
     Param _ -> empty
@@ -98,6 +114,7 @@ ppstmt s = case s of
     Cont -> text "continue;"
     NoOp -> empty
 
+-- Declarations
 ppdecl :: TagDecl -> Doc
 ppdecl d = case d of
     Uni i t e ->  let v = (Var t i) 

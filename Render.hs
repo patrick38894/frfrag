@@ -17,20 +17,24 @@ import qualified Graphics.Rendering.OpenGL as GL
 
 ------------------------------------------------------------------------------
 -- Basic GLSL vertex source
+-- This just forward vertices exactly as they are
 vertSource = B.intercalate "\n"
            [ "#version 430 core",
              "layout(location = 0) in vec4 v;",
              "void main() { gl_Position = v; }"]
 
-------------------------------------------------------------------------------
+--------------------------------------------y----------------------------------
 -- Low-level rendering
--- Taken from examples by Svenne Panne, (c) 2013
+-- Adapted from examples by Svenne Panne, (c) 2013
 
+-- Shorthand labels for GL types
 type KeyInfo = (GLFW.Key, Int, GLFW.KeyState, GLFW.ModifierKeys) 
 data Descriptor = Desc GL.VertexArrayObject GL.ArrayIndex GL.NumArrayIndices 
 data ShaderInfo = ShaderInfo GL.ShaderType B.ByteString
 
 -- Initialize a GL fragment shader from source
+-- Using vertices that just fill the whole screen (w),
+-- make vertex buffers and bind the shader program to openGL
 initShader :: B.ByteString -> IO (GL.Program, Descriptor)
 initShader src = do
     let w = map (\(x,y) -> GL.Vertex2 x y)
