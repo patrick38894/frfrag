@@ -21,9 +21,6 @@ redFrag = fragMain (setColor $ mat [[1,0,0,0]])
 gradFrag :: WriteProg ()
 gradFrag = fragMain (setColor (val FragCoord ./ (1000 :: TagE Float)))
 
-sinFrag :: WriteProg ()
-sinFrag = fragMain (setColor (sin (val FragCoord ./ float 1000)))
-
 passthrough :: WriteProg ()
 passthrough = fragMain (setColor (val FragColor))
 
@@ -39,17 +36,21 @@ simpleAssignment = do
     fragMain $ do
         x <- mkFloat; set x (screen .@ "x")
         setColor (val FragCoord ./ val x)
-    
 
-colormap :: Float -> Float -> Bind -> TagE (Mat Float)
-colormap c1 c2 x = vec [val x * lit c1, 1 - val x * lit c2, 0.5, 1]
+colormap :: (TagE Float -> TagE Float)  -> (TagE Float -> TagE Float) 
+        -> (TagE Float -> TagE Float) -> Bind -> TagE (Mat Float)
+colormap c1 c2 c3 x = vec [c1 $ val x, c2 $ val x, c3 $ val x, 1]
 
 complexMult :: Expr expr => expr (Mat Float) -> expr (Mat Float) -> expr (Mat Float)
 complexMult a b = vec [a .@ "x" .* b .@ "x" .- a .@ "y" .* b .@ "y",
                        swiz a "x" .* swiz b "y" .+ swiz a "y" .* swiz b "x"]
 
-mandelbrot :: Float -> Float -> WriteProg ()
-mandelbrot c1 c2 =   do
+mandelbrot :: (TagE Float -> TagE Float)
+            -> (TagE Float -> TagE Float)
+            -> (TagE Float -> TagE Float) 
+            -> (TagE (Mat Float) -> TagE (Mat Float)) -> WriteProg ()
+
+mandelbrot c1 c2 c3 warp = do
     zoom    <- udef $ vec [4,4]
     center  <- udef $ vec [0,0]
     screen  <- udef $ vec [1280, 960]
@@ -64,7 +65,7 @@ mandelbrot c1 c2 =   do
         ret   (p .* zoom / screen + center)
     colors  <- proc $ do
         x   <- bind $ arg float_t
-        ret   (colormap c1 c2 x)
+        ret   (colormap c1 c2 c3 x)
     mandel  <- proc $ do
         c <- param (vec_t 2)
         s <- mkFloat; set s (float 0)
@@ -77,4 +78,4 @@ mandelbrot c1 c2 =   do
         ret (val s)
 
     fragMain $ do
-        setColor (colors (mandel (scale (offset $ val FragCoord))))
+        setColor (colors (mandel (scale (offset $ warp $ val FragCoord))))

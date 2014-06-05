@@ -180,17 +180,16 @@ instance Floating a => Floating (Behavior a) where
 ------------------------------------------------------------------------------
 -- Interfacing with fragment shader programs,
 -- all of which must have the same uniform inputs.
---           uniform types -> uniform behavior -> shader selection
---         -> window title -> size -> reactive program
-type Uniform = (Type, Tagged)
+--
+
+type Uniform = ((Type, Tagged), String)
 type Fragment = WriteProg ()
 
-renderReactive :: [Fragment] -> [Type] -> Behavior [Uniform]
+renderReactive :: Fragment -> Behavior [Uniform]
               -> String -> (Int, Int) -> Double -> IO ()
-renderReactive fs uts ubs nm (x,y) hz = do
-    -- Set up the initial window
-    verifyUniformsFrag fs uts
-    (ks, rsz, ms) <- drawWithInput (map pprint fs) nm (x,y)
+renderReactive fs ubs nm (x,y) hz = do
+    let uts = map (fst . fst) (getUniforms fs)
+    (ks, rsz, ms) <- drawWithInput [pprint fs] nm (x,y)
     (outp, inp) <- spawn Unbounded
     forkIO $ do runEffect $ ks >-> keyToEvent >-> toOutput outp
                 performGC
@@ -200,12 +199,20 @@ renderReactive fs uts ubs nm (x,y) hz = do
                 performGC
     runEffect $ waitClock hz (fromInput inp) >-> ubs >-> setUniforms uts
 
+catUniforms :: [Behavior Uniform] -> Behavior [Uniform]
+catUniforms = foldr (lift2 (:)) (lift0 [])
 
 pprint :: Fragment -> B.ByteString
 pprint = B.pack . show
 
 setUniforms :: [Type] -> Consumer [Uniform] IO ()
-setUniforms ts = undefined
+setUniforms ts = forever $ do
+    us <- await
+    if verifyUniforms ts us then return () else error "Wrong uniform types"
+    lift $ mapM_ setUniform us
+
+setUniform :: Uniform -> IO ()
+setUniform p = undefined 
 
 keyToEvent = undefined
 rszToEvent = undefined
@@ -214,10 +221,5 @@ msToEvent = undefined
 getUniforms :: Fragment -> [Uniform]
 getUniforms = undefined
 
-verifyUniformsFrag :: [Fragment] -> [Type] -> IO ()
-verifyUniformsFrag fs ts = if and $ map (verifyUniforms ts . getUniforms) fs
-    then return ()
-    else error "Incorrect types in fragment uniform declarations"
-
 verifyUniforms :: [Type] -> [Uniform] -> Bool
-verifyUniforms ts us = and $ zipWith (==) (map fst us) ts
+verifyUniforms ts us = and $ zipWith (==) (map (fst . fst) us) ts
