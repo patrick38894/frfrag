@@ -52,8 +52,8 @@ waitUntil t = do
 zipWithClock :: (Double -> a -> b) -> Double -> Producer a IO r -> Producer b IO r
 zipWithClock f hz = P.zipWith f (clock hz)
 
-waitClock :: Double -> Producer a IO r -> Producer (Double, a) IO r
-waitClock = zipWithClock (,)
+waitClock :: Double -> Producer a IO r -> Producer (a, Double) IO r
+waitClock = zipWithClock (flip (,))
 
 waitClock_ :: Double -> Producer a IO r -> Producer a IO r
 waitClock_ = zipWithClock (\x y -> y)
