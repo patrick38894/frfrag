@@ -11,3 +11,13 @@ To test:
 
     These tests the GLSL EDSL and pretty printer,
     GLFW boilerplate, and basic use of Pipes to coordinate concurrent programs.
+
+
+LICENSE:
+    I had uploaded this without any license, since it's unfinished and no one is looking at it.
+    In case anyone actually does look at it:
+    
+    This software is provided as is, with absolutely no warranty.
+    This software is a work in the public domain and may be reproduced or used for any purpose, with or without alterations.
+    Please consider linking to this GitHub repository or providing attribution to the original author,
+    H Forrest Alexander.
